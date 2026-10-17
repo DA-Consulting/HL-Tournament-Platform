@@ -97,6 +97,76 @@ export interface Database {
           }
         ]
       }
+      tournaments: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          player_id: string
+          status: string
+          start_date: string
+          end_date: string | null
+          prize_pool_currency: string | null
+          prize_pool_amount: number | null
+          winner_player_id: string | null
+          tournament_type: string
+          banner_url: string | null
+          game_mode: string | null
+          max_participants: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          player_id: string
+          status?: string
+          start_date: string
+          end_date?: string | null
+          prize_pool_currency?: string | null
+          prize_pool_amount?: number | null
+          winner_player_id?: string | null
+          tournament_type?: string
+          banner_url?: string | null
+          game_mode?: string | null
+          max_participants?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string | null
+          player_id?: string
+          status?: string
+          start_date?: string
+          end_date?: string | null
+          prize_pool_currency?: string | null
+          prize_pool_amount?: number | null
+          winner_player_id?: string | null
+          tournament_type?: string
+          banner_url?: string | null
+          game_mode?: string | null
+          max_participants?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournaments_player_id_fkey"
+            columns: ["player_id"]
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournaments_winner_player_id_fkey"
+            columns: ["winner_player_id"]
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never

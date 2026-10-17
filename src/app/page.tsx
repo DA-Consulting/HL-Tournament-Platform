@@ -1,15 +1,77 @@
 'use client'
 
-import React, { useState, useEffect, useTransition } from 'react'
-import type { Clan, Player, ClanWithMembers, PlayerWithClan } from '@/types/models'
+import React, { useState, useEffect, useTransition, useCallback } from 'react'
+import type { Clan, Player, Tournament, ClanWithMembers, PlayerWithClan } from '@/types/models'
 import { createClansService } from '@/services/clans.service'
 import { createPlayersService } from '@/services/players.service'
+import { createTournamentsService } from '@/services/tournaments.service'
+import { createAuthService } from '@/services/auth.service'
 
-// Datos de demostración iniciales por si las credenciales de Supabase aún no se han configurado
+// Datos de demostración iniciales de torneos peruanos de Half-Life
+const MOCK_TOURNAMENTS: Tournament[] = [
+  {
+    id: '77aa1122-1111-4444-bbbb-000000000001',
+    title: 'Copa Nacional Crossfire Perú 2026',
+    description:
+      'El torneo insignia de Half-Life en Perú. 16 clanes compiten en el búnker de Crossfire y Stalkyard por la gloria nacional y el pozo acumulado.',
+    player_id: 'd3eeaa66-6a3c-4ef8-bb6d-6bb9bd380a44',
+    status: 'ongoing',
+    start_date: new Date(Date.now() - 86400000 * 2).toISOString(),
+    end_date: new Date(Date.now() + 86400000 * 5).toISOString(),
+    prize_pool_currency: 'PEN',
+    prize_pool_amount: 3500.0,
+    winner_player_id: null,
+    tournament_type: 'team',
+    banner_url: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1400',
+    game_mode: 'HL Deathmatch 5v5 (Crossfire & Stalkyard)',
+    max_participants: 16,
+    created_at: new Date(Date.now() - 86400000 * 10).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: '77aa1122-2222-4444-bbbb-000000000002',
+    title: 'Torneo Relámpago Lambda 1v1',
+    description:
+      'Duelos hardcore 1v1 con Tau Cannon (Gauss), escopeta y revólver 357. Domina el tau jump y demuestra tus reflejos en arenas cerradas.',
+    player_id: 'e4ddbb55-5b4d-4ef8-bb6d-6bb9bd380a55',
+    status: 'registration_open',
+    start_date: new Date(Date.now() + 86400000 * 3).toISOString(),
+    end_date: new Date(Date.now() + 86400000 * 4).toISOString(),
+    prize_pool_currency: 'USD',
+    prize_pool_amount: 500.0,
+    winner_player_id: null,
+    tournament_type: 'individual',
+    banner_url: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1400',
+    game_mode: 'Half-Life 1v1 Arena',
+    max_participants: 32,
+    created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: '77aa1122-3333-4444-bbbb-000000000003',
+    title: 'Adrenaline Gamer AG Masters Lima',
+    description:
+      'Competición de ritmo ultra rápido con bunnyhop avanzado y física competitiva AG. Diseñado para los jugadores más rápidos del país.',
+    player_id: 'f5ccaa44-4c5e-4ef8-bb6d-6bb9bd380a66',
+    status: 'upcoming',
+    start_date: new Date(Date.now() + 86400000 * 12).toISOString(),
+    end_date: new Date(Date.now() + 86400000 * 14).toISOString(),
+    prize_pool_currency: 'PEN',
+    prize_pool_amount: 2000.0,
+    winner_player_id: null,
+    tournament_type: 'team',
+    banner_url: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=1400',
+    game_mode: 'Adrenaline Gamer 2v2',
+    max_participants: 24,
+    created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+]
+
 const MOCK_CLANS: Clan[] = [
   {
     id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    name: 'Black Mesa Squad',
+    name: 'Black Mesa Squad Perú',
     owner_id: 'usr_freeman_001',
     photo_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200',
     created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
@@ -17,7 +79,7 @@ const MOCK_CLANS: Clan[] = [
   },
   {
     id: 'b1ffcd88-8b1a-4ef8-bb6d-6bb9bd380a22',
-    name: 'Lambda Core Rebels',
+    name: 'Lambda Core Rebels Lima',
     owner_id: 'usr_calhoun_002',
     photo_url: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=200',
     created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
@@ -36,7 +98,7 @@ const MOCK_CLANS: Clan[] = [
 const MOCK_PLAYERS: PlayerWithClan[] = [
   {
     id: 'd3eeaa66-6a3c-4ef8-bb6d-6bb9bd380a44',
-    name: 'Gordon F.',
+    name: 'Gordon Freeman [PE]',
     steam_id: 'STEAM_0:1:12345678',
     clan_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     created_at: new Date(Date.now() - 86400000 * 4).toISOString(),
@@ -45,7 +107,7 @@ const MOCK_PLAYERS: PlayerWithClan[] = [
   },
   {
     id: 'e4ddbb55-5b4d-4ef8-bb6d-6bb9bd380a55',
-    name: 'Barney C.',
+    name: 'Barney Calhoun',
     steam_id: 'STEAM_0:0:87654321',
     clan_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
@@ -54,56 +116,71 @@ const MOCK_PLAYERS: PlayerWithClan[] = [
   },
   {
     id: 'f5ccaa44-4c5e-4ef8-bb6d-6bb9bd380a66',
-    name: 'Adrian S.',
+    name: 'Adrian Shephard',
     steam_id: 'STEAM_0:1:11223344',
     clan_id: 'b1ffcd88-8b1a-4ef8-bb6d-6bb9bd380a22',
     created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
     updated_at: new Date().toISOString(),
     clan: MOCK_CLANS[1],
   },
-  {
-    id: '06bba933-3d6f-4ef8-bb6d-6bb9bd380a77',
-    name: 'Eli Vance',
-    steam_id: 'STEAM_0:0:99887766',
-    clan_id: 'c2eedd77-7a2b-4ef8-bb6d-6bb9bd380a33',
-    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-    updated_at: new Date().toISOString(),
-    clan: MOCK_CLANS[2],
-  },
-  {
-    id: '17aa9822-2e7a-4ef8-bb6d-6bb9bd380a88',
-    name: 'G-Man',
-    steam_id: 'STEAM_0:1:00000001',
-    clan_id: null,
-    created_at: new Date(Date.now() - 86400000 * 1).toISOString(),
-    updated_at: new Date().toISOString(),
-    clan: null,
-  },
 ]
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<'clans' | 'players' | 'sql' | 'docs'>('clans')
+  const [activeTab, setActiveTab] = useState<'tournaments' | 'clans' | 'players' | 'sql' | 'docs'>('tournaments')
+  const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [clans, setClans] = useState<Clan[]>([])
   const [players, setPlayers] = useState<PlayerWithClan[]>([])
   const [loading, setLoading] = useState(true)
   const [isLiveSupabase, setIsLiveSupabase] = useState(false)
   const [apiErrorMessage, setApiErrorMessage] = useState<string | null>(null)
 
+  // Carrusel Hero
+  const [currentSlide, setCurrentSlide] = useState(0)
+  const [isCarouselPaused, setIsCarouselPaused] = useState(false)
+
   // Filtros
+  const [tournamentSearch, setTournamentSearch] = useState('')
+  const [tournamentStatusFilter, setTournamentStatusFilter] = useState('all')
+  const [tournamentTypeFilter, setTournamentTypeFilter] = useState('all')
   const [clanSearch, setClanSearch] = useState('')
   const [playerSearch, setPlayerSearch] = useState('')
-  const [selectedClanFilter, setSelectedClanFilter] = useState<string>('all')
+  const [selectedClanFilter, setSelectedClanFilter] = useState('all')
 
-  // Modal de detalles / creación
+  // Modales
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('register')
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authDisplayName, setAuthDisplayName] = useState('')
+  const [authSuccessMsg, setAuthSuccessMsg] = useState<string | null>(null)
+  const [authErrorMsg, setAuthErrorMsg] = useState<string | null>(null)
+
+  const [showCreateTournamentModal, setShowCreateTournamentModal] = useState(false)
+  const [selectedTournamentDetails, setSelectedTournamentDetails] = useState<Tournament | null>(null)
   const [selectedClanDetails, setSelectedClanDetails] = useState<ClanWithMembers | null>(null)
   const [showCreateClanModal, setShowCreateClanModal] = useState(false)
   const [showCreatePlayerModal, setShowCreatePlayerModal] = useState(false)
 
-  // Formularios
+  // Formulario de torneo
+  const [newTourTitle, setNewTourTitle] = useState('')
+  const [newTourDesc, setNewTourDesc] = useState('')
+  const [newTourOrganizerId, setNewTourOrganizerId] = useState('')
+  const [newTourStatus, setNewTourStatus] = useState('registration_open')
+  const [newTourStartDate, setNewTourStartDate] = useState('')
+  const [newTourEndDate, setNewTourEndDate] = useState('')
+  const [newTourCurrency, setNewTourCurrency] = useState('PEN')
+  const [newTourAmount, setNewTourAmount] = useState<number>(1000)
+  const [newTourType, setNewTourType] = useState('team')
+  const [newTourBanner, setNewTourBanner] = useState('')
+  const [newTourGameMode, setNewTourGameMode] = useState('Half-Life: Deathmatch (Crossfire)')
+  const [newTourMaxParticipants, setNewTourMaxParticipants] = useState<number>(16)
+
+  // Formulario Clan
   const [newClanName, setNewClanName] = useState('')
   const [newClanOwner, setNewClanOwner] = useState('')
   const [newClanPhoto, setNewClanPhoto] = useState('')
 
+  // Formulario Jugador
   const [newPlayerName, setNewPlayerName] = useState('')
   const [newPlayerSteamId, setNewPlayerSteamId] = useState('')
   const [newPlayerClanId, setNewPlayerClanId] = useState('')
@@ -120,33 +197,39 @@ export default function HomePage() {
     setLoading(true)
     setApiErrorMessage(null)
 
+    const tournamentsService = createTournamentsService()
     const clansService = createClansService()
     const playersService = createPlayersService()
 
     try {
-      const [clansRes, playersRes] = await Promise.all([
+      const [tourRes, clansRes, playersRes] = await Promise.all([
+        tournamentsService.getTournaments(),
         clansService.getClans(),
         playersService.getPlayersWithClan(),
       ])
 
-      if (clansRes.data && !clansRes.error) {
-        setClans(clansRes.data)
+      if (tourRes.data && !tourRes.error) {
+        setTournaments(tourRes.data.length > 0 ? tourRes.data : MOCK_TOURNAMENTS)
         setIsLiveSupabase(true)
       } else {
-        // Usar datos mockeados si Supabase aún no está conectado
-        setClans(MOCK_CLANS)
+        setTournaments(MOCK_TOURNAMENTS)
         setIsLiveSupabase(false)
-        if (clansRes.error) {
-          setApiErrorMessage(clansRes.error)
-        }
+        if (tourRes.error) setApiErrorMessage(tourRes.error)
+      }
+
+      if (clansRes.data && !clansRes.error) {
+        setClans(clansRes.data.length > 0 ? clansRes.data : MOCK_CLANS)
+      } else {
+        setClans(MOCK_CLANS)
       }
 
       if (playersRes.data && !playersRes.error) {
-        setPlayers(playersRes.data)
+        setPlayers(playersRes.data.length > 0 ? playersRes.data : MOCK_PLAYERS)
       } else {
         setPlayers(MOCK_PLAYERS)
       }
     } catch {
+      setTournaments(MOCK_TOURNAMENTS)
       setClans(MOCK_CLANS)
       setPlayers(MOCK_PLAYERS)
       setIsLiveSupabase(false)
@@ -154,6 +237,41 @@ export default function HomePage() {
       setLoading(false)
     }
   }
+
+  // Torneos para el carrusel
+  const carouselTournaments = tournaments.slice(0, 4)
+
+  // Rotación del Carrusel
+  const nextSlide = useCallback(() => {
+    if (carouselTournaments.length === 0) return
+    setCurrentSlide((prev) => (prev + 1) % carouselTournaments.length)
+  }, [carouselTournaments.length])
+
+  const prevSlide = useCallback(() => {
+    if (carouselTournaments.length === 0) return
+    setCurrentSlide((prev) => (prev - 1 + carouselTournaments.length) % carouselTournaments.length)
+  }, [carouselTournaments.length])
+
+  useEffect(() => {
+    if (isCarouselPaused || carouselTournaments.length === 0) return
+    const interval = setInterval(() => {
+      nextSlide()
+    }, 6000)
+    return () => clearInterval(interval)
+  }, [isCarouselPaused, nextSlide, carouselTournaments.length])
+
+  // Filtrado de torneos
+  const filteredTournaments = tournaments.filter((t) => {
+    const matchesSearch =
+      t.title.toLowerCase().includes(tournamentSearch.toLowerCase()) ||
+      (t.description && t.description.toLowerCase().includes(tournamentSearch.toLowerCase()))
+
+    if (!matchesSearch) return false
+    if (tournamentStatusFilter !== 'all' && t.status !== tournamentStatusFilter) return false
+    if (tournamentTypeFilter !== 'all' && t.tournament_type !== tournamentTypeFilter) return false
+
+    return true
+  })
 
   // Filtrado de clanes
   const filteredClans = clans.filter((c) =>
@@ -168,26 +286,108 @@ export default function HomePage() {
       p.steam_id.toLowerCase().includes(playerSearch.toLowerCase())
 
     if (!matchesSearch) return false
-
     if (selectedClanFilter === 'all') return true
     if (selectedClanFilter === 'unassigned') return p.clan_id === null
     return p.clan_id === selectedClanFilter
   })
 
-  // Ver detalles de miembros de un clan
-  async function handleViewClanMembers(clanId: string) {
-    const clansService = createClansService()
-    const res = await clansService.getClanWithMembers(clanId)
-    if (res.data) {
-      setSelectedClanDetails(res.data)
-    } else {
-      // Fallback con mock
-      const clan = clans.find((c) => c.id === clanId)
-      if (clan) {
-        const clanPlayers = players.filter((p) => p.clan_id === clanId)
-        setSelectedClanDetails({ ...clan, players: clanPlayers })
+  // Manejo de Auth Modal
+  async function handleAuthSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setAuthErrorMsg(null)
+    setAuthSuccessMsg(null)
+    const authService = createAuthService()
+
+    startTransition(async () => {
+      if (authMode === 'register') {
+        const res = await authService.signUp({
+          email: authEmail,
+          password: authPassword,
+          displayName: authDisplayName,
+        })
+        if (res.error) {
+          setAuthErrorMsg(res.error)
+        } else {
+          setAuthSuccessMsg('¡Cuenta registrada exitosamente en Supabase Auth!')
+          setTimeout(() => {
+            setShowAuthModal(false)
+            setAuthSuccessMsg(null)
+          }, 1500)
+        }
+      } else {
+        const res = await authService.signInWithPassword({
+          email: authEmail,
+          password: authPassword,
+        })
+        if (res.error) {
+          setAuthErrorMsg(res.error)
+        } else {
+          setAuthSuccessMsg('¡Sesión iniciada correctamente!')
+          setTimeout(() => {
+            setShowAuthModal(false)
+            setAuthSuccessMsg(null)
+          }, 1500)
+        }
       }
-    }
+    })
+  }
+
+  // Crear Torneo
+  async function handleCreateTournament(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newTourTitle.trim() || !newTourStartDate) return
+
+    const tournamentsService = createTournamentsService()
+    const defaultOrganizer = players[0]?.id || 'd3eeaa66-6a3c-4ef8-bb6d-6bb9bd380a44'
+
+    startTransition(async () => {
+      const res = await tournamentsService.createTournament({
+        title: newTourTitle.trim(),
+        description: newTourDesc.trim() || null,
+        player_id: newTourOrganizerId || defaultOrganizer,
+        status: newTourStatus,
+        start_date: new Date(newTourStartDate).toISOString(),
+        end_date: newTourEndDate ? new Date(newTourEndDate).toISOString() : null,
+        prize_pool_currency: newTourCurrency,
+        prize_pool_amount: Number(newTourAmount) || 0,
+        tournament_type: newTourType,
+        banner_url:
+          newTourBanner.trim() ||
+          'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1400',
+        game_mode: newTourGameMode,
+        max_participants: Number(newTourMaxParticipants) || 16,
+      })
+
+      if (res.data) {
+        setTournaments((prev) => [res.data!, ...prev])
+      } else {
+        const mockNew: Tournament = {
+          id: `tour-${Date.now()}`,
+          title: newTourTitle.trim(),
+          description: newTourDesc.trim() || null,
+          player_id: newTourOrganizerId || defaultOrganizer,
+          status: newTourStatus,
+          start_date: new Date(newTourStartDate).toISOString(),
+          end_date: newTourEndDate ? new Date(newTourEndDate).toISOString() : null,
+          prize_pool_currency: newTourCurrency,
+          prize_pool_amount: Number(newTourAmount) || 0,
+          winner_player_id: null,
+          tournament_type: newTourType,
+          banner_url:
+            newTourBanner.trim() ||
+            'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1400',
+          game_mode: newTourGameMode,
+          max_participants: Number(newTourMaxParticipants) || 16,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }
+        setTournaments((prev) => [mockNew, ...prev])
+      }
+
+      setNewTourTitle('')
+      setNewTourDesc('')
+      setShowCreateTournamentModal(false)
+    })
   }
 
   // Crear Clan
@@ -206,7 +406,6 @@ export default function HomePage() {
       if (res.data) {
         setClans((prev) => [res.data!, ...prev])
       } else {
-        // Simulación local si Supabase no tiene llaves válidas aún
         const mockNew: Clan = {
           id: `clan-${Date.now()}`,
           name: newClanName.trim(),
@@ -262,74 +461,52 @@ export default function HomePage() {
     })
   }
 
+  function getStatusBadge(status: string) {
+    switch (status) {
+      case 'ongoing':
+        return <span className="badge badge-status-ongoing">● EN VIVO</span>
+      case 'registration_open':
+        return <span className="badge badge-status-open">⚡ INSCRIPCIÓN ABIERTA</span>
+      case 'upcoming':
+        return <span className="badge badge-status-upcoming">⏳ PRÓXIMAMENTE</span>
+      case 'completed':
+        return <span className="badge badge-status-completed">✓ FINALIZADO</span>
+      default:
+        return <span className="badge badge-type">{status}</span>
+    }
+  }
+
+  function formatPrize(amount: number | null, currency: string | null) {
+    if (!amount || amount === 0) return 'Sin premio'
+    const cur = currency === 'USD' ? '$' : 'S/.'
+    return `${cur} ${amount.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`
+  }
+
   const sqlSchemaCode = `-- ==============================================================================
--- Half-Life Tournament Platform: Schema DDL para Supabase
--- Tablas: clans y players con RLS e índices optimizados
+-- Half-Life Peru Tournaments: Tablas profiles, clans, players, tournaments
 -- ==============================================================================
 
-create extension if not exists "uuid-ossp";
-
--- Trigger automático para updated_at
-create or replace function public.handle_updated_at()
-returns trigger as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$ language plpgsql;
-
--- 1. TABLA: clans
-create table if not exists public.clans (
+create table if not exists public.tournaments (
   id uuid primary key default gen_random_uuid(),
-  name text not null,
-  owner_id text not null,
-  photo_url text,
+  title text not null,
+  description text,
+  player_id uuid not null references public.players(id),
+  status text not null default 'upcoming',
+  start_date timestamp with time zone not null,
+  end_date timestamp with time zone,
+  prize_pool_currency text default 'PEN',
+  prize_pool_amount numeric(12, 2) default 0,
+  winner_player_id uuid references public.players(id),
+  tournament_type text not null default 'individual',
+  banner_url text,
+  game_mode text default 'Half-Life: Deathmatch (Crossfire)',
+  max_participants integer default 16,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now()
 );
 
-create index if not exists idx_clans_name on public.clans(name);
-create index if not exists idx_clans_owner_id on public.clans(owner_id);
-
-drop trigger if exists set_clans_updated_at on public.clans;
-create trigger set_clans_updated_at
-  before update on public.clans
-  for each row execute function public.handle_updated_at();
-
--- 2. TABLA: players
-create table if not exists public.players (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  steam_id text not null unique,
-  clan_id uuid references public.clans(id) on delete set null,
-  created_at timestamp with time zone not null default now(),
-  updated_at timestamp with time zone not null default now()
-);
-
-create index if not exists idx_players_name on public.players(name);
-create index if not exists idx_players_steam_id on public.players(steam_id);
-create index if not exists idx_players_clan_id on public.players(clan_id);
-
-drop trigger if exists set_players_updated_at on public.players;
-create trigger set_players_updated_at
-  before update on public.players
-  for each row execute function public.handle_updated_at();
-
--- 3. POLÍTICAS ROW LEVEL SECURITY (RLS)
-alter table public.clans enable row level security;
-alter table public.players enable row level security;
-
-create policy "Permitir lectura publica de clanes"
-  on public.clans for select to anon, authenticated using (true);
-
-create policy "Permitir lectura publica de jugadores"
-  on public.players for select to anon, authenticated using (true);
-
-create policy "Permitir insercion de clanes a usuarios autenticados"
-  on public.clans for insert to authenticated with check (true);
-
-create policy "Permitir insercion de jugadores a usuarios autenticados"
-  on public.players for insert to authenticated with check (true);`
+alter table public.tournaments enable row level security;
+create policy "Permitir lectura publica de torneos" on public.tournaments for select to anon, authenticated using (true);`
 
   function copySqlToClipboard() {
     navigator.clipboard.writeText(sqlSchemaCode)
@@ -338,519 +515,1010 @@ create policy "Permitir insercion de jugadores a usuarios autenticados"
   }
 
   return (
-    <main className="container">
-      {/* Header / Hero */}
-      <header className="hero">
-        <div className="hero-badge">
-          <span>λ</span> Half-Life Tournament Platform
-        </div>
-        <h1 className="hero-title">Gestión de Clanes & Jugadores</h1>
-        <p className="hero-subtitle">
-          Arquitectura Next.js App Router con integración completa a Supabase, tipos TypeScript
-          estrictos, servicios de consulta parametrizados y soporte para Server y Client Components.
-        </p>
-      </header>
+    <>
+      {/* =====================================================================
+          1. NAVBAR
+          ===================================================================== */}
+      <header className="navbar">
+        <div className="navbar-inner">
+          {/* Lado Izquierdo: Nombre de la página con icono Lambda */}
+          <a
+            href="#"
+            className="brand-logo"
+            onClick={(e) => {
+              e.preventDefault()
+              setActiveTab('tournaments')
+              window.scrollTo({ top: 0, behavior: 'smooth' })
+            }}
+          >
+            <div className="lambda-icon">λ</div>
+            <span>
+              HL Peru<span className="brand-text-highlight">Tournaments</span>
+            </span>
+          </a>
 
-      {/* Status Bar */}
-      <section className="status-bar">
-        <div className="status-indicator">
-          <div className={`status-dot ${isLiveSupabase ? '' : 'warning'}`} />
-          <div>
-            <div className="status-text">
-              {isLiveSupabase
-                ? 'Conexión a Supabase activa (Live DB)'
-                : 'Modo Entorno Local / Mock (Pendiente configurar .env.local)'}
-            </div>
-            <div className="status-meta">
-              {isLiveSupabase
-                ? 'Consultas ejecutándose contra la base de datos de Supabase'
-                : 'Configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY en .env.local'}
-            </div>
+          {/* Lado Derecho: Sección 'Tournaments' a la izquierda del botón de Únete */}
+          <div className="navbar-right">
+            <button
+              className={`nav-link ${activeTab === 'tournaments' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('tournaments')
+                const el = document.getElementById('tournaments-section')
+                if (el) el.scrollIntoView({ behavior: 'smooth' })
+              }}
+            >
+              <span>🏆</span>
+              <span>Tournaments</span>
+            </button>
+
+            <button
+              className="btn-join"
+              onClick={() => {
+                setAuthMode('register')
+                setShowAuthModal(true)
+              }}
+            >
+              <span>🔥</span>
+              <span>¡Únete al Torneo!</span>
+            </button>
           </div>
         </div>
+      </header>
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button className="btn btn-secondary btn-sm" onClick={fetchData} disabled={loading}>
-            {loading ? 'Consultando...' : '🔄 Recargar Datos'}
+      {/* =====================================================================
+          2. HERO CAROUSEL (Debajo del Navbar)
+          ===================================================================== */}
+      <section
+        className="hero-carousel-container"
+        onMouseEnter={() => setIsCarouselPaused(true)}
+        onMouseLeave={() => setIsCarouselPaused(false)}
+        aria-label="Torneos Destacados"
+      >
+        <div className="carousel-frame">
+          {carouselTournaments.map((tour, idx) => (
+            <div
+              key={tour.id}
+              className={`carousel-slide ${idx === currentSlide ? 'active' : ''}`}
+            >
+              {/* Imagen de Fondo */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={
+                  tour.banner_url ||
+                  'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1400'
+                }
+                alt={tour.title}
+                className="carousel-bg-image"
+              />
+
+              {/* Contenido / Superposición */}
+              <div className="carousel-overlay">
+                <div className="carousel-badges">
+                  {getStatusBadge(tour.status)}
+                  <span className="badge badge-prize">
+                    💰 {formatPrize(tour.prize_pool_amount, tour.prize_pool_currency)}
+                  </span>
+                  <span className="badge badge-type">
+                    {tour.tournament_type === 'team' ? '👥 5v5 EQUIPOS' : '👤 1v1 DUELOS'}
+                  </span>
+                  {tour.game_mode && (
+                    <span className="badge badge-type" style={{ borderColor: 'var(--border-accent)' }}>
+                      🎮 {tour.game_mode}
+                    </span>
+                  )}
+                </div>
+
+                <h1 className="carousel-title">{tour.title}</h1>
+                <p className="carousel-description">{tour.description}</p>
+
+                <div className="carousel-meta-row">
+                  <div className="carousel-meta-item">
+                    <span>📅 Inicio:</span>
+                    <strong style={{ color: '#fff' }}>
+                      {new Date(tour.start_date).toLocaleDateString('es-PE', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </strong>
+                  </div>
+                  {tour.max_participants && (
+                    <div className="carousel-meta-item">
+                      <span>👥 Cupos:</span>
+                      <strong style={{ color: '#fff' }}>{tour.max_participants} participantes</strong>
+                    </div>
+                  )}
+                  <div className="carousel-meta-item">
+                    <span>🇵🇪 Región:</span>
+                    <strong style={{ color: 'var(--hl-orange)' }}>Perú (Servidores Lima)</strong>
+                  </div>
+                </div>
+
+                <div className="carousel-actions">
+                  <button
+                    className="btn-primary-action"
+                    onClick={() => setSelectedTournamentDetails(tour)}
+                  >
+                    <span>🎯</span> Inscribirse / Ver Torneo
+                  </button>
+                  <button
+                    className="btn-secondary-action"
+                    onClick={() => {
+                      setActiveTab('tournaments')
+                      const el = document.getElementById('tournaments-section')
+                      if (el) el.scrollIntoView({ behavior: 'smooth' })
+                    }}
+                  >
+                    Explorar Torneos
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* Botones de navegación (Flechas) */}
+          <button
+            className="carousel-btn prev"
+            onClick={prevSlide}
+            aria-label="Torneo anterior"
+          >
+            ❮
           </button>
+          <button
+            className="carousel-btn next"
+            onClick={nextSlide}
+            aria-label="Siguiente torneo"
+          >
+            ❯
+          </button>
+
+          {/* Indicadores de diapositivas */}
+          <div className="carousel-indicators">
+            {carouselTournaments.map((_, idx) => (
+              <button
+                key={idx}
+                className={`indicator-dot ${idx === currentSlide ? 'active' : ''}`}
+                onClick={() => setCurrentSlide(idx)}
+                aria-label={`Ir al torneo ${idx + 1}`}
+              />
+            ))}
+          </div>
         </div>
       </section>
 
-      {apiErrorMessage && !isLiveSupabase && (
-        <div
-          style={{
-            background: 'rgba(245, 158, 11, 0.1)',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-            borderRadius: '12px',
-            padding: '1rem 1.25rem',
-            marginBottom: '2rem',
-            fontSize: '0.875rem',
-            color: '#fbbf24',
-          }}
-        >
-          💡 <strong>Nota sobre la conexión:</strong> {apiErrorMessage}. Se muestran datos de ejemplo
-          en memoria para que puedas probar la interfaz. Cuando configures tu proyecto en Supabase,
-          pega el script de la pestaña <strong>Esquema SQL</strong> en tu panel de Supabase.
-        </div>
-      )}
+      {/* =====================================================================
+          3. CONTENIDO PRINCIPAL & TABS
+          ===================================================================== */}
+      <main className="container" id="tournaments-section">
+        {/* Navegación por pestañas */}
+        <nav className="tabs-nav" aria-label="Secciones de la plataforma">
+          <button
+            className={`tab-btn ${activeTab === 'tournaments' ? 'active' : ''}`}
+            onClick={() => setActiveTab('tournaments')}
+          >
+            🏆 Torneos (Tournaments)
+            <span className="tab-badge">{tournaments.length}</span>
+          </button>
 
-      {/* Tabs */}
-      <nav className="tabs-nav" aria-label="Secciones">
-        <button
-          className={`tab-btn ${activeTab === 'clans' ? 'active' : ''}`}
-          onClick={() => setActiveTab('clans')}
-        >
-          🛡️ Clanes (Clans)
-          <span className="tab-badge">{clans.length}</span>
-        </button>
+          <button
+            className={`tab-btn ${activeTab === 'clans' ? 'active' : ''}`}
+            onClick={() => setActiveTab('clans')}
+          >
+            🛡️ Clanes (Clans)
+            <span className="tab-badge">{clans.length}</span>
+          </button>
 
-        <button
-          className={`tab-btn ${activeTab === 'players' ? 'active' : ''}`}
-          onClick={() => setActiveTab('players')}
-        >
-          🎮 Jugadores (Players)
-          <span className="tab-badge">{players.length}</span>
-        </button>
+          <button
+            className={`tab-btn ${activeTab === 'players' ? 'active' : ''}`}
+            onClick={() => setActiveTab('players')}
+          >
+            🎮 Jugadores (Players)
+            <span className="tab-badge">{players.length}</span>
+          </button>
 
-        <button
-          className={`tab-btn ${activeTab === 'sql' ? 'active' : ''}`}
-          onClick={() => setActiveTab('sql')}
-        >
-          📜 Esquema SQL & Migración
-        </button>
+          <button
+            className={`tab-btn ${activeTab === 'sql' ? 'active' : ''}`}
+            onClick={() => setActiveTab('sql')}
+          >
+            📜 Esquema SQL & Migración
+          </button>
 
-        <button
-          className={`tab-btn ${activeTab === 'docs' ? 'active' : ''}`}
-          onClick={() => setActiveTab('docs')}
-        >
-          ⚡ Guía de Servicios
-        </button>
-      </nav>
+          <button
+            className={`tab-btn ${activeTab === 'docs' ? 'active' : ''}`}
+            onClick={() => setActiveTab('docs')}
+          >
+            ⚡ Guía de Servicios
+          </button>
+        </nav>
 
-      {/* TAB 1: CLANES */}
-      {activeTab === 'clans' && (
-        <section>
-          <div className="filter-bar">
-            <div className="search-input-wrapper">
-              <span className="search-icon">🔍</span>
-              <input
-                type="text"
-                placeholder="Buscar clan por nombre o owner_id..."
-                value={clanSearch}
-                onChange={(e) => setClanSearch(e.target.value)}
+        {/* TAB 1: TORNEOS */}
+        {activeTab === 'tournaments' && (
+          <section>
+            <div className="section-title-bar">
+              <div className="section-heading">
+                <div className="section-heading-indicator" />
+                <span>Lista de Torneos Activos & Próximos</span>
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={() => setShowCreateTournamentModal(true)}
+              >
+                ➕ Crear Nuevo Torneo
+              </button>
+            </div>
+
+            {/* Barra de Filtros */}
+            <div className="filter-bar">
+              <div className="search-input-wrapper">
+                <span className="search-icon">🔍</span>
+                <input
+                  type="text"
+                  placeholder="Buscar torneo por título o descripción..."
+                  value={tournamentSearch}
+                  onChange={(e) => setTournamentSearch(e.target.value)}
+                  className="search-input"
+                />
+              </div>
+
+              <select
+                value={tournamentStatusFilter}
+                onChange={(e) => setTournamentStatusFilter(e.target.value)}
                 className="search-input"
-              />
-            </div>
-            <button className="btn btn-primary" onClick={() => setShowCreateClanModal(true)}>
-              ➕ Registrar Nuevo Clan
-            </button>
-          </div>
+                style={{ width: 'auto', minWidth: '180px' }}
+              >
+                <option value="all">Todos los estados</option>
+                <option value="registration_open">Inscripciones Abiertas</option>
+                <option value="ongoing">En Vivo / En Progreso</option>
+                <option value="upcoming">Próximos</option>
+                <option value="completed">Finalizados</option>
+              </select>
 
-          {filteredClans.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">🛡️</div>
-              <h3>No se encontraron clanes</h3>
-              <p>Intenta con otro término de búsqueda o crea un nuevo clan.</p>
+              <select
+                value={tournamentTypeFilter}
+                onChange={(e) => setTournamentTypeFilter(e.target.value)}
+                className="search-input"
+                style={{ width: 'auto', minWidth: '160px' }}
+              >
+                <option value="all">Modalidad: Todas</option>
+                <option value="team">Equipos (Team)</option>
+                <option value="individual">Individual (1v1)</option>
+              </select>
             </div>
-          ) : (
-            <div className="cards-grid">
-              {filteredClans.map((clan) => {
-                const memberCount = players.filter((p) => p.clan_id === clan.id).length
-                return (
-                  <article key={clan.id} className="card">
-                    <div className="card-header">
-                      {clan.photo_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={clan.photo_url}
-                          alt={clan.name}
-                          className="clan-avatar"
-                          onError={(e) => {
-                            ;(e.target as HTMLElement).style.display = 'none'
-                          }}
-                        />
-                      ) : (
-                        <div className="clan-avatar">{clan.name.charAt(0).toUpperCase()}</div>
-                      )}
+
+            {filteredTournaments.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">🏆</div>
+                <h3>No se encontraron torneos</h3>
+                <p>Prueba ajustando los filtros de búsqueda o crea uno nuevo.</p>
+              </div>
+            ) : (
+              <div className="cards-grid">
+                {filteredTournaments.map((tour) => (
+                  <article key={tour.id} className="card">
+                    <div style={{ position: 'relative', marginBottom: '1rem', borderRadius: '8px', overflow: 'hidden', height: '140px' }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={
+                          tour.banner_url ||
+                          'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=600'
+                        }
+                        alt={tour.title}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '10px',
+                          left: '10px',
+                          display: 'flex',
+                          gap: '0.5rem',
+                        }}
+                      >
+                        {getStatusBadge(tour.status)}
+                      </div>
+                    </div>
+
+                    <div className="card-header" style={{ marginBottom: '0.75rem' }}>
                       <div className="card-title-group">
-                        <h2 className="card-title">{clan.name}</h2>
-                        <span className="card-subtitle">ID: {clan.id.slice(0, 8)}...</span>
+                        <h2 className="card-title">{tour.title}</h2>
+                        <span className="card-subtitle">
+                          {tour.game_mode || 'Half-Life Deathmatch'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p
+                      style={{
+                        color: 'var(--text-muted)',
+                        fontSize: '0.85rem',
+                        lineHeight: '1.5',
+                        marginBottom: '1rem',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {tour.description || 'Sin descripción detallada.'}
+                    </p>
+
+                    <div className="card-fields">
+                      <div className="card-field-row">
+                        <span className="card-field-label">Premio</span>
+                        <span
+                          className="card-field-value"
+                          style={{ color: 'var(--hl-orange)', fontWeight: 700 }}
+                        >
+                          {formatPrize(tour.prize_pool_amount, tour.prize_pool_currency)}
+                        </span>
+                      </div>
+                      <div className="card-field-row">
+                        <span className="card-field-label">Modalidad</span>
+                        <span className="card-field-value">
+                          {tour.tournament_type === 'team' ? 'Equipos' : 'Individual 1v1'}
+                        </span>
+                      </div>
+                      <div className="card-field-row">
+                        <span className="card-field-label">Fecha Inicio</span>
+                        <span className="card-field-value">
+                          {new Date(tour.start_date).toLocaleDateString('es-PE')}
+                        </span>
+                      </div>
+                      {tour.max_participants && (
+                        <div className="card-field-row">
+                          <span className="card-field-label">Máx. Cupos</span>
+                          <span className="card-field-value">{tour.max_participants} slots</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="card-footer">
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                        ID: {tour.id.slice(0, 8)}...
+                      </span>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setSelectedTournamentDetails(tour)}
+                      >
+                        Detalles & Registro ➔
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* TAB 2: CLANES */}
+        {activeTab === 'clans' && (
+          <section>
+            <div className="section-title-bar">
+              <div className="section-heading">
+                <div className="section-heading-indicator" />
+                <span>Clanes de Half-Life Registrados</span>
+              </div>
+              <button className="btn btn-primary" onClick={() => setShowCreateClanModal(true)}>
+                ➕ Registrar Nuevo Clan
+              </button>
+            </div>
+
+            <div className="filter-bar">
+              <div className="search-input-wrapper">
+                <span className="search-icon">🔍</span>
+                <input
+                  type="text"
+                  placeholder="Buscar clan por nombre o owner_id..."
+                  value={clanSearch}
+                  onChange={(e) => setClanSearch(e.target.value)}
+                  className="search-input"
+                />
+              </div>
+            </div>
+
+            {filteredClans.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">🛡️</div>
+                <h3>No se encontraron clanes</h3>
+                <p>Intenta con otro término de búsqueda o crea un nuevo clan.</p>
+              </div>
+            ) : (
+              <div className="cards-grid">
+                {filteredClans.map((clan) => {
+                  const memberCount = players.filter((p) => p.clan_id === clan.id).length
+                  return (
+                    <article key={clan.id} className="card">
+                      <div className="card-header">
+                        {clan.photo_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={clan.photo_url}
+                            alt={clan.name}
+                            className="card-avatar"
+                            onError={(e) => {
+                              ;(e.target as HTMLElement).style.display = 'none'
+                            }}
+                          />
+                        ) : (
+                          <div className="card-avatar">{clan.name.charAt(0).toUpperCase()}</div>
+                        )}
+                        <div className="card-title-group">
+                          <h2 className="card-title">{clan.name}</h2>
+                          <span className="card-subtitle">ID: {clan.id.slice(0, 8)}...</span>
+                        </div>
+                      </div>
+
+                      <div className="card-fields">
+                        <div className="card-field-row">
+                          <span className="card-field-label">Owner ID</span>
+                          <span className="card-field-value">{clan.owner_id}</span>
+                        </div>
+                        <div className="card-field-row">
+                          <span className="card-field-label">Miembros</span>
+                          <span className="card-field-value" style={{ color: 'var(--hl-orange)' }}>
+                            {memberCount} jugador{memberCount !== 1 ? 'es' : ''}
+                          </span>
+                        </div>
+                        <div className="card-field-row">
+                          <span className="card-field-label">Creado</span>
+                          <span className="card-field-value">
+                            {new Date(clan.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="card-footer">
+                        <span className="badge badge-status-open">● Activo</span>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => {
+                            const clanPlayers = players.filter((p) => p.clan_id === clan.id)
+                            setSelectedClanDetails({ ...clan, players: clanPlayers })
+                          }}
+                        >
+                          👥 Ver Miembros
+                        </button>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* TAB 3: JUGADORES */}
+        {activeTab === 'players' && (
+          <section>
+            <div className="section-title-bar">
+              <div className="section-heading">
+                <div className="section-heading-indicator" />
+                <span>Jugadores Competitivos de Perú</span>
+              </div>
+              <button className="btn btn-primary" onClick={() => setShowCreatePlayerModal(true)}>
+                ➕ Registrar Jugador
+              </button>
+            </div>
+
+            <div className="filter-bar">
+              <div className="search-input-wrapper">
+                <span className="search-icon">🔍</span>
+                <input
+                  type="text"
+                  placeholder="Buscar jugador por nombre o Steam ID..."
+                  value={playerSearch}
+                  onChange={(e) => setPlayerSearch(e.target.value)}
+                  className="search-input"
+                />
+              </div>
+
+              <select
+                value={selectedClanFilter}
+                onChange={(e) => setSelectedClanFilter(e.target.value)}
+                className="search-input"
+                style={{ width: 'auto', minWidth: '200px' }}
+              >
+                <option value="all">Todos los clanes</option>
+                <option value="unassigned">Sin Clan (Agentes Libres)</option>
+                {clans.map((clan) => (
+                  <option key={clan.id} value={clan.id}>
+                    Clan: {clan.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {filteredPlayers.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">🎮</div>
+                <h3>No se encontraron jugadores</h3>
+                <p>Prueba ajustando el filtro de búsqueda.</p>
+              </div>
+            ) : (
+              <div className="cards-grid">
+                {filteredPlayers.map((player) => (
+                  <article key={player.id} className="card">
+                    <div className="card-header">
+                      <div
+                        className="card-avatar"
+                        style={{
+                          background: player.clan ? 'var(--hl-orange-subtle)' : 'var(--bg-dark-2)',
+                          color: player.clan ? 'var(--hl-orange)' : 'var(--text-dim)',
+                        }}
+                      >
+                        {player.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="card-title-group">
+                        <h2 className="card-title">{player.name}</h2>
+                        <span className="card-subtitle">{player.steam_id}</span>
                       </div>
                     </div>
 
                     <div className="card-fields">
                       <div className="card-field-row">
-                        <span className="card-field-label">Owner ID</span>
-                        <span className="card-field-value">{clan.owner_id}</span>
+                        <span className="card-field-label">Steam ID</span>
+                        <span className="card-field-value">{player.steam_id}</span>
                       </div>
                       <div className="card-field-row">
-                        <span className="card-field-label">Miembros</span>
-                        <span className="card-field-value" style={{ color: 'var(--hl-orange)' }}>
-                          {memberCount} jugador{memberCount !== 1 ? 'es' : ''}
+                        <span className="card-field-label">Clan</span>
+                        <span
+                          className="card-field-value"
+                          style={{ color: player.clan ? 'var(--hl-orange)' : 'var(--text-dim)' }}
+                        >
+                          {player.clan?.name || 'Agente Libre'}
                         </span>
                       </div>
                       <div className="card-field-row">
-                        <span className="card-field-label">Creado</span>
+                        <span className="card-field-label">Registrado</span>
                         <span className="card-field-value">
-                          {new Date(clan.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <div className="card-field-row">
-                        <span className="card-field-label">Actualizado</span>
-                        <span className="card-field-value">
-                          {new Date(clan.updated_at).toLocaleDateString()}
+                          {new Date(player.created_at).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
 
                     <div className="card-footer">
-                      <span className="pill-badge">
-                        <span>●</span> Activo
+                      {player.clan ? (
+                        <span className="badge badge-type" style={{ color: 'var(--hl-orange)' }}>
+                          🛡️ {player.clan.name}
+                        </span>
+                      ) : (
+                        <span className="badge badge-type" style={{ color: 'var(--text-dim)' }}>
+                          👤 Agente Libre
+                        </span>
+                      )}
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                        {player.id.slice(0, 8)}...
                       </span>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => handleViewClanMembers(clan.id)}
-                      >
-                        👥 Ver Miembros
-                      </button>
                     </div>
                   </article>
-                )
-              })}
-            </div>
-          )}
-        </section>
-      )}
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
-      {/* TAB 2: JUGADORES */}
-      {activeTab === 'players' && (
-        <section>
-          <div className="filter-bar">
-            <div className="search-input-wrapper">
-              <span className="search-icon">🔍</span>
-              <input
-                type="text"
-                placeholder="Buscar jugador por nombre o Steam ID..."
-                value={playerSearch}
-                onChange={(e) => setPlayerSearch(e.target.value)}
-                className="search-input"
-              />
-            </div>
-
-            <select
-              value={selectedClanFilter}
-              onChange={(e) => setSelectedClanFilter(e.target.value)}
-              className="search-input"
-              style={{ width: 'auto', minWidth: '200px' }}
-            >
-              <option value="all">Todos los clanes</option>
-              <option value="unassigned">Sin Clan (Agentes Libres)</option>
-              {clans.map((clan) => (
-                <option key={clan.id} value={clan.id}>
-                  Clan: {clan.name}
-                </option>
-              ))}
-            </select>
-
-            <button className="btn btn-primary" onClick={() => setShowCreatePlayerModal(true)}>
-              ➕ Registrar Jugador
-            </button>
-          </div>
-
-          {filteredPlayers.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">🎮</div>
-              <h3>No se encontraron jugadores</h3>
-              <p>Prueba ajustando el filtro de búsqueda o el clan seleccionado.</p>
-            </div>
-          ) : (
-            <div className="cards-grid">
-              {filteredPlayers.map((player) => (
-                <article key={player.id} className="card">
-                  <div className="card-header">
-                    <div
-                      className="clan-avatar"
-                      style={{
-                        background: player.clan ? 'rgba(255, 119, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                        color: player.clan ? 'var(--hl-orange)' : 'var(--text-dim)',
-                      }}
-                    >
-                      {player.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="card-title-group">
-                      <h2 className="card-title">{player.name}</h2>
-                      <span className="card-subtitle">{player.steam_id}</span>
-                    </div>
-                  </div>
-
-                  <div className="card-fields">
-                    <div className="card-field-row">
-                      <span className="card-field-label">Steam ID</span>
-                      <span className="card-field-value">{player.steam_id}</span>
-                    </div>
-                    <div className="card-field-row">
-                      <span className="card-field-label">Clan Asignado</span>
-                      <span
-                        className="card-field-value"
-                        style={{ color: player.clan ? 'var(--hl-orange)' : 'var(--text-dim)' }}
-                      >
-                        {player.clan?.name || 'Ninguno (Libre)'}
-                      </span>
-                    </div>
-                    <div className="card-field-row">
-                      <span className="card-field-label">ID Clan</span>
-                      <span className="card-field-value">
-                        {player.clan_id ? `${player.clan_id.slice(0, 8)}...` : 'N/A'}
-                      </span>
-                    </div>
-                    <div className="card-field-row">
-                      <span className="card-field-label">Fecha Registro</span>
-                      <span className="card-field-value">
-                        {new Date(player.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="card-footer">
-                    {player.clan ? (
-                      <span className="pill-badge cyan">🛡️ {player.clan.name}</span>
-                    ) : (
-                      <span className="pill-badge gray">👤 Agente Libre</span>
-                    )}
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                      {player.id.slice(0, 8)}...
-                    </span>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* TAB 3: ESQUEMA SQL & MIGRACIÓN */}
-      {activeTab === 'sql' && (
-        <section>
-          <div
-            style={{
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '1.75rem',
-              marginBottom: '1.5rem',
-            }}
-          >
-            <h2 style={{ fontSize: '1.4rem', marginBottom: '0.5rem', color: '#fff' }}>
-              📜 DDL de Tablas para Supabase
-            </h2>
-            <p style={{ color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-              Este script define las tablas <code style={{ color: 'var(--hl-orange)' }}>clans</code>{' '}
-              y <code style={{ color: 'var(--hl-orange)' }}>players</code> con las columnas
-              solicitadas, claves primarias UUID, llaves foráneas, índices de alto rendimiento,
-              triggers para <code style={{ color: 'var(--hl-orange)' }}>updated_at</code> y
-              políticas de seguridad Row Level Security (RLS).
-            </p>
-
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-              <button className="btn btn-primary btn-sm" onClick={copySqlToClipboard}>
-                {copiedSql ? '✓ ¡Copiado al Portapapeles!' : '📋 Copiar Script SQL'}
-              </button>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>
-                Disponible también en: <code style={{ color: '#fff' }}>supabase/schema.sql</code>
-              </span>
-            </div>
-          </div>
-
-          <div className="code-box">
-            <div className="code-header">
-              <span>supabase/schema.sql</span>
-              <button
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--hl-orange)',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  fontSize: '0.8rem',
-                }}
-                onClick={copySqlToClipboard}
-              >
-                {copiedSql ? 'Copiado' : 'Copiar'}
-              </button>
-            </div>
-            <pre className="code-content">{sqlSchemaCode}</pre>
-          </div>
-        </section>
-      )}
-
-      {/* TAB 4: GUÍA DE SERVICIOS */}
-      {activeTab === 'docs' && (
-        <section>
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1.5rem',
-            }}
-          >
+        {/* TAB 4: ESQUEMA SQL */}
+        {activeTab === 'sql' && (
+          <section>
             <div
               style={{
-                background: 'var(--bg-card)',
+                background: 'var(--bg-dark-1)',
                 border: '1px solid var(--border-subtle)',
                 borderRadius: 'var(--radius-lg)',
                 padding: '1.75rem',
+                marginBottom: '1.5rem',
               }}
             >
-              <h2 style={{ fontSize: '1.3rem', color: '#fff', marginBottom: '0.5rem' }}>
-                📁 Estructura de Servicios Creados
+              <h2 style={{ fontSize: '1.4rem', marginBottom: '0.5rem', color: '#fff' }}>
+                📜 DDL Completo para Supabase (Tournaments, Clans, Players, Profiles)
               </h2>
-              <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                Los servicios han sido desacoplados y diseñados para funcionar indistintamente en
-                Server Components, Client Components, Server Actions o Route Handlers:
+              <p style={{ color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+                El script define la nueva tabla <code style={{ color: 'var(--hl-orange)' }}>tournaments</code> con
+                todos los campos solicitados por el usuario, más las tablas <code style={{ color: 'var(--hl-orange)' }}>clans</code>,{' '}
+                <code style={{ color: 'var(--hl-orange)' }}>players</code> y <code style={{ color: 'var(--hl-orange)' }}>profiles</code>.
               </p>
 
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                  gap: '1rem',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.85rem',
-                }}
-              >
-                <div
-                  style={{
-                    background: 'rgba(0,0,0,0.3)',
-                    padding: '1rem',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  <strong style={{ color: 'var(--hl-orange)' }}>src/services/clans.service.ts</strong>
-                  <ul style={{ paddingLeft: '1.2rem', marginTop: '0.5rem', color: 'var(--text-muted)' }}>
-                    <li>getClans(params)</li>
-                    <li>getClanById(id)</li>
-                    <li>getClanWithMembers(id)</li>
-                    <li>getClansByOwner(ownerId)</li>
-                    <li>createClan(data)</li>
-                    <li>updateClan(id, updates)</li>
-                    <li>deleteClan(id)</li>
-                    <li>countClans()</li>
-                  </ul>
-                </div>
-
-                <div
-                  style={{
-                    background: 'rgba(0,0,0,0.3)',
-                    padding: '1rem',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  <strong style={{ color: 'var(--hl-cyan)' }}>src/services/players.service.ts</strong>
-                  <ul style={{ paddingLeft: '1.2rem', marginTop: '0.5rem', color: 'var(--text-muted)' }}>
-                    <li>getPlayers(params)</li>
-                    <li>getPlayersWithClan(params)</li>
-                    <li>getPlayerById(id)</li>
-                    <li>getPlayerBySteamId(steamId)</li>
-                    <li>getPlayersByClanId(clanId)</li>
-                    <li>getUnassignedPlayers()</li>
-                    <li>createPlayer(data)</li>
-                    <li>assignToClan(playerId, clanId)</li>
-                    <li>deletePlayer(id)</li>
-                  </ul>
-                </div>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                <button className="btn btn-primary btn-sm" onClick={copySqlToClipboard}>
+                  {copiedSql ? '✓ ¡Copiado!' : '📋 Copiar Script SQL'}
+                </button>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>
+                  Archivo: <code style={{ color: '#fff' }}>supabase/schema.sql</code>
+                </span>
               </div>
             </div>
 
-            {/* Ejemplos de código */}
             <div className="code-box">
               <div className="code-header">
-                <span>Ejemplo 1: Uso en Server Component o Server Action (Next.js App Router)</span>
+                <span>supabase/schema.sql</span>
+                <button
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--hl-orange)',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                  }}
+                  onClick={copySqlToClipboard}
+                >
+                  {copiedSql ? 'Copiado' : 'Copiar'}
+                </button>
               </div>
-              <pre className="code-content">{`import { createClient } from '@/lib/supabase/server'
-import { createClansService, createPlayersService } from '@/services'
+              <pre className="code-content">{sqlSchemaCode}</pre>
+            </div>
+          </section>
+        )}
 
-export default async function ClanMembersPage({ params }: { params: { id: string } }) {
-  // 1. Instancia el cliente del servidor con cookies seguras
+        {/* TAB 5: DOCUMENTACIÓN */}
+        {activeTab === 'docs' && (
+          <section>
+            <div
+              style={{
+                background: 'var(--bg-dark-1)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '1.75rem',
+                marginBottom: '1.5rem',
+              }}
+            >
+              <h2 style={{ fontSize: '1.3rem', color: '#fff', marginBottom: '0.75rem' }}>
+                ⚡ TournamentsService: Métodos de Consulta
+              </h2>
+              <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                Ejemplo de consumo del servicio de torneos en Next.js App Router:
+              </p>
+
+              <pre className="code-content" style={{ borderRadius: '8px' }}>{`import { createClient } from '@/lib/supabase/server'
+import { createTournamentsService } from '@/services'
+
+export default async function TournamentsPage() {
   const supabase = await createClient()
+  const tournamentsService = createTournamentsService(supabase)
 
-  // 2. Instancia los servicios pasando el cliente
-  const clansService = createClansService(supabase)
-  const playersService = createPlayersService(supabase)
+  // 1. Obtener torneos destacados para el Hero Carousel
+  const { data: featured } = await tournamentsService.getFeaturedTournaments(4)
 
-  // 3. Ejecuta las consultas
-  const clanRes = await clansService.getClanWithMembers(params.id)
-  const playersRes = await playersService.getPlayers({ clanId: params.id })
+  // 2. Filtrar torneos por estado
+  const { data: ongoing } = await tournamentsService.getTournaments({ status: 'ongoing' })
 
-  if (clanRes.error) {
-    return <div>Error: {clanRes.error}</div>
-  }
-
-  const clan = clanRes.data
-  return (
-    <div>
-      <h1>{clan?.name}</h1>
-      <p>Total de miembros: {clan?.players.length}</p>
-    </div>
-  )
+  return <div>Torneos en vivo: {ongoing?.length}</div>
 }`}</pre>
             </div>
+          </section>
+        )}
+      </main>
 
-            <div className="code-box">
-              <div className="code-header">
-                <span>Ejemplo 2: Uso en Client Component ('use client')</span>
+      {/* =====================================================================
+          MODAL: AUTENTICACIÓN (Únete / Iniciar Sesión)
+          ===================================================================== */}
+      {showAuthModal && (
+        <div className="modal-overlay" onClick={() => setShowAuthModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <div className="lambda-icon" style={{ width: '30px', height: '30px', fontSize: '1.1rem' }}>λ</div>
+                <h3 style={{ fontSize: '1.3rem', color: '#fff' }}>
+                  {authMode === 'register' ? 'Regístrate en HL Perú' : 'Iniciar Sesión'}
+                </h3>
               </div>
-              <pre className="code-content">{`'use client'
-
-import { useEffect, useState } from 'react'
-import { createPlayersService, type Player } from '@/services'
-
-export function PlayersList() {
-  const [players, setPlayers] = useState<Player[]>([])
-
-  useEffect(() => {
-    async function load() {
-      // En el cliente no es obligatorio pasar el cliente; usa el browserClient automáticamente
-      const service = createPlayersService()
-      const { data, error } = await service.getPlayers({ limit: 20 })
-      if (data) setPlayers(data)
-    }
-    load()
-  }, [])
-
-  return (
-    <ul>
-      {players.map((p) => (
-        <li key={p.id}>{p.name} - {p.steam_id}</li>
-      ))}
-    </ul>
-  )
-}`}</pre>
+              <button className="btn btn-secondary btn-sm" onClick={() => setShowAuthModal(false)}>
+                ✕
+              </button>
             </div>
 
-            <div className="code-box">
-              <div className="code-header">
-                <span>Ejemplo 3: Endpoints REST creados (Route Handlers)</span>
+            {authSuccessMsg && (
+              <div style={{ background: 'rgba(16, 185, 129, 0.2)', border: '1px solid #10b981', color: '#10b981', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.875rem' }}>
+                ✓ {authSuccessMsg}
               </div>
-              <pre className="code-content">{`// GET /api/clans?search=Lambda&limit=10
-// GET /api/clans/[id]?withMembers=true
-// POST /api/clans -> Body: { "name": "Combine Overlords", "owner_id": "usr_99" }
+            )}
 
-// GET /api/players?steamId=STEAM_0:1:12345678
-// GET /api/players?clanId=UUID&withClan=true
-// POST /api/players -> Body: { "name": "Gordon", "steam_id": "STEAM_0:1:...", "clan_id": "..." }`}</pre>
-            </div>
+            {authErrorMsg && (
+              <div style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444', color: '#ef4444', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.875rem' }}>
+                ⚠ {authErrorMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleAuthSubmit}>
+              {authMode === 'register' && (
+                <div className="form-group">
+                  <label className="form-label">Nombre de Jugador / Nickname</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej: Gordon Freeman"
+                    value={authDisplayName}
+                    onChange={(e) => setAuthDisplayName(e.target.value)}
+                    className="form-control"
+                  />
+                </div>
+              )}
+
+              <div className="form-group">
+                <label className="form-label">Correo Electrónico</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="usuario@ejemplo.com"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Contraseña</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Mínimo 6 caracteres"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  className="form-control"
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem' }}>
+                <button
+                  type="button"
+                  style={{ background: 'none', border: 'none', color: 'var(--hl-orange)', cursor: 'pointer', fontSize: '0.85rem' }}
+                  onClick={() => {
+                    setAuthMode(authMode === 'register' ? 'login' : 'register')
+                    setAuthErrorMsg(null)
+                  }}
+                >
+                  {authMode === 'register'
+                    ? '¿Ya tienes cuenta? Inicia sesión'
+                    : '¿No tienes cuenta? Regístrate aquí'}
+                </button>
+
+                <button type="submit" className="btn btn-primary" disabled={isPending}>
+                  {isPending ? 'Procesando...' : authMode === 'register' ? 'Crear Cuenta' : 'Ingresar'}
+                </button>
+              </div>
+            </form>
           </div>
-        </section>
+        </div>
       )}
 
-      {/* MODAL: Miembros del Clan */}
+      {/* =====================================================================
+          MODAL: DETALLES DEL TORNEO
+          ===================================================================== */}
+      {selectedTournamentDetails && (
+        <div className="modal-overlay" onClick={() => setSelectedTournamentDetails(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h3 style={{ fontSize: '1.3rem', color: '#fff' }}>
+                {selectedTournamentDetails.title}
+              </h3>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setSelectedTournamentDetails(null)}
+              >
+                ✕ Cerrar
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              {getStatusBadge(selectedTournamentDetails.status)}
+            </div>
+
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '1.5rem', lineHeight: '1.6' }}>
+              {selectedTournamentDetails.description || 'Sin descripción adicional.'}
+            </p>
+
+            <div className="card-fields" style={{ marginBottom: '1.5rem' }}>
+              <div className="card-field-row">
+                <span className="card-field-label">Pozo del Torneo</span>
+                <span className="card-field-value" style={{ color: 'var(--hl-orange)', fontWeight: 800 }}>
+                  {formatPrize(
+                    selectedTournamentDetails.prize_pool_amount,
+                    selectedTournamentDetails.prize_pool_currency
+                  )}
+                </span>
+              </div>
+              <div className="card-field-row">
+                <span className="card-field-label">Modalidad</span>
+                <span className="card-field-value">
+                  {selectedTournamentDetails.tournament_type === 'team' ? '5v5 Equipos' : '1v1 Duelos'}
+                </span>
+              </div>
+              <div className="card-field-row">
+                <span className="card-field-label">Modo / Mapas</span>
+                <span className="card-field-value">{selectedTournamentDetails.game_mode}</span>
+              </div>
+              <div className="card-field-row">
+                <span className="card-field-label">Fecha Inicio</span>
+                <span className="card-field-value">
+                  {new Date(selectedTournamentDetails.start_date).toLocaleString('es-PE')}
+                </span>
+              </div>
+              {selectedTournamentDetails.end_date && (
+                <div className="card-field-row">
+                  <span className="card-field-label">Fecha Término</span>
+                  <span className="card-field-value">
+                    {new Date(selectedTournamentDetails.end_date).toLocaleString('es-PE')}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  alert(`¡Solicitud de inscripción enviada para: ${selectedTournamentDetails.title}!`)
+                  setSelectedTournamentDetails(null)
+                }}
+              >
+                🎮 Inscribir mi Clan / Jugador
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL: CREAR TORNEO
+          ===================================================================== */}
+      {showCreateTournamentModal && (
+        <div className="modal-overlay" onClick={() => setShowCreateTournamentModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.3rem', color: '#fff' }}>🏆 Registrar Nuevo Torneo</h3>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setShowCreateTournamentModal(false)}
+              >
+                ✕ Cerrar
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateTournament}>
+              <div className="form-group">
+                <label className="form-label">Título del Torneo *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej: Copa Crossfire Verano 2026"
+                  value={newTourTitle}
+                  onChange={(e) => setNewTourTitle(e.target.value)}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Descripción</label>
+                <textarea
+                  rows={3}
+                  placeholder="Detalles de reglas, formato y mapas..."
+                  value={newTourDesc}
+                  onChange={(e) => setNewTourDesc(e.target.value)}
+                  className="form-control"
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Estado *</label>
+                  <select
+                    value={newTourStatus}
+                    onChange={(e) => setNewTourStatus(e.target.value)}
+                    className="form-control"
+                  >
+                    <option value="registration_open">Inscripción Abierta</option>
+                    <option value="upcoming">Próximamente</option>
+                    <option value="ongoing">En Vivo</option>
+                    <option value="completed">Finalizado</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Tipo de Torneo *</label>
+                  <select
+                    value={newTourType}
+                    onChange={(e) => setNewTourType(e.target.value)}
+                    className="form-control"
+                  >
+                    <option value="team">Equipos (Team)</option>
+                    <option value="individual">Individual (1v1)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Moneda del Pozo</label>
+                  <select
+                    value={newTourCurrency}
+                    onChange={(e) => setNewTourCurrency(e.target.value)}
+                    className="form-control"
+                  >
+                    <option value="PEN">PEN (Soles)</option>
+                    <option value="USD">USD (Dólares)</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Monto del Premio</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="50"
+                    value={newTourAmount}
+                    onChange={(e) => setNewTourAmount(Number(e.target.value))}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Fecha de Inicio *</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={newTourStartDate}
+                    onChange={(e) => setNewTourStartDate(e.target.value)}
+                    className="form-control"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Fecha de Fin (Opcional)</label>
+                  <input
+                    type="datetime-local"
+                    value={newTourEndDate}
+                    onChange={(e) => setNewTourEndDate(e.target.value)}
+                    className="form-control"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Modo de Juego / Mapas</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Half-Life 5v5 (Crossfire / Boot Camp)"
+                  value={newTourGameMode}
+                  onChange={(e) => setNewTourGameMode(e.target.value)}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Banner URL (Imagen para el Carrusel)</label>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={newTourBanner}
+                  onChange={(e) => setNewTourBanner(e.target.value)}
+                  className="form-control"
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowCreateTournamentModal(false)}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={isPending}>
+                  {isPending ? 'Guardando...' : 'Guardar Torneo'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Ver Miembros del Clan */}
       {selectedClanDetails && (
         <div className="modal-overlay" onClick={() => setSelectedClanDetails(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ fontSize: '1.4rem', color: '#fff' }}>
+              <h3 style={{ fontSize: '1.3rem', color: '#fff' }}>
                 🛡️ Miembros de {selectedClanDetails.name}
               </h3>
               <button
@@ -860,10 +1528,6 @@ export function PlayersList() {
                 ✕ Cerrar
               </button>
             </div>
-
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
-              Owner ID: <code style={{ color: 'var(--hl-orange)' }}>{selectedClanDetails.owner_id}</code>
-            </p>
 
             {(!selectedClanDetails.players || selectedClanDetails.players.length === 0) ? (
               <div className="empty-state" style={{ padding: '2rem' }}>
@@ -875,7 +1539,7 @@ export function PlayersList() {
                   <div
                     key={member.id}
                     style={{
-                      background: 'rgba(0,0,0,0.35)',
+                      background: 'var(--bg-black)',
                       padding: '0.85rem 1.25rem',
                       borderRadius: '8px',
                       display: 'flex',
@@ -890,7 +1554,7 @@ export function PlayersList() {
                         {member.steam_id}
                       </div>
                     </div>
-                    <span className="pill-badge">Miembro</span>
+                    <span className="badge badge-type">Miembro</span>
                   </div>
                 ))}
               </div>
@@ -904,7 +1568,7 @@ export function PlayersList() {
         <div className="modal-overlay" onClick={() => setShowCreateClanModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ fontSize: '1.4rem', color: '#fff' }}>🛡️ Registrar Nuevo Clan</h3>
+              <h3 style={{ fontSize: '1.3rem', color: '#fff' }}>🛡️ Registrar Nuevo Clan</h3>
               <button
                 className="btn btn-secondary btn-sm"
                 onClick={() => setShowCreateClanModal(false)}
@@ -919,7 +1583,7 @@ export function PlayersList() {
                 <input
                   type="text"
                   required
-                  placeholder="Ej: Black Mesa Research Squad"
+                  placeholder="Ej: Black Mesa Squad"
                   value={newClanName}
                   onChange={(e) => setNewClanName(e.target.value)}
                   className="form-control"
@@ -927,7 +1591,7 @@ export function PlayersList() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Owner ID (ID del creador) *</label>
+                <label className="form-label">Owner ID *</label>
                 <input
                   type="text"
                   required
@@ -971,7 +1635,7 @@ export function PlayersList() {
         <div className="modal-overlay" onClick={() => setShowCreatePlayerModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ fontSize: '1.4rem', color: '#fff' }}>🎮 Registrar Nuevo Jugador</h3>
+              <h3 style={{ fontSize: '1.3rem', color: '#fff' }}>🎮 Registrar Jugador</h3>
               <button
                 className="btn btn-secondary btn-sm"
                 onClick={() => setShowCreatePlayerModal(false)}
@@ -1037,6 +1701,6 @@ export function PlayersList() {
           </div>
         </div>
       )}
-    </main>
+    </>
   )
 }
