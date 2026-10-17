@@ -2,9 +2,10 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database.types'
 
 /**
- * Cliente con privilegios administrativos (service_role).
+ * Cliente con privilegios administrativos (secret key / service_role).
  * ATENCIÓN: Solo debe usarse en entornos de servidor de confianza.
- * NUNCA exponer la clave service_role al navegador o en variables NEXT_PUBLIC_*.
+ * NUNCA exponer la clave secret o service_role al navegador ni en variables NEXT_PUBLIC_*.
+ * Utiliza SUPABASE_SECRET_KEY (con fallback a la variable heredada SUPABASE_SERVICE_ROLE_KEY).
  */
 export function createAdminClient() {
   if (typeof window !== 'undefined') {
@@ -12,15 +13,18 @@ export function createAdminClient() {
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  const secretKey =
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    ''
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !secretKey) {
     throw new Error(
-      'Faltan las variables de entorno NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY para inicializar el cliente administrativo.'
+      'Faltan las variables de entorno NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SECRET_KEY para inicializar el cliente administrativo.'
     )
   }
 
-  return createSupabaseClient<Database>(supabaseUrl, serviceRoleKey, {
+  return createSupabaseClient<Database>(supabaseUrl, secretKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

@@ -47,11 +47,11 @@ Copia el archivo de ejemplo o edita `.env.local`:
 cp .env.example .env.local
 ```
 
-Configura tus credenciales (disponibles en *Project Settings -> API*):
+Configura tus credenciales (disponibles en *Project Settings -> API* o panel *Connect*):
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=tu-clave-anonima-publica
-SUPABASE_SERVICE_ROLE_KEY=tu-clave-service-role # Opcional, solo backend
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_tu-clave-publica
+SUPABASE_SECRET_KEY=sb_secret_tu-clave-secreta # Opcional, solo backend
 ```
 
 ### 3. Iniciar el Servidor de Desarrollo
@@ -67,7 +67,7 @@ Abre [http://localhost:3000](http://localhost:3000) en tu navegador para ver el 
 
 - **Browser Client (`src/lib/supabase/client.ts`)**: Para componentes del cliente (`'use client'`).
 - **Server Client (`src/lib/supabase/server.ts`)**: Para Server Components, Server Actions y Route Handlers (`cookies()` seguras).
-- **Admin Client (`src/lib/supabase/admin.ts`)**: Para operaciones elevadas de servidor usando `SUPABASE_SERVICE_ROLE_KEY`.
+- **Admin Client (`src/lib/supabase/admin.ts`)**: Para operaciones elevadas de servidor usando `SUPABASE_SECRET_KEY`.
 - **Proxy / Session (`src/proxy.ts` / `src/lib/supabase/middleware.ts`)**: Refresco automático de tokens de sesión.
 
 ---

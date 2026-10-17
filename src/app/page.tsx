@@ -364,7 +364,7 @@ create policy "Permitir insercion de jugadores a usuarios autenticados"
             <div className="status-meta">
               {isLiveSupabase
                 ? 'Consultas ejecutándose contra la base de datos de Supabase'
-                : 'Configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local'}
+                : 'Configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY en .env.local'}
             </div>
           </div>
         </div>
