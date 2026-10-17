@@ -3,7 +3,8 @@
 import React, { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { createAuthService } from '@/services/auth.service'
+import { toast } from 'sonner'
+import { loginAction, registerAction } from '@/actions/auth.actions'
 
 export default function AuthPage() {
   const router = useRouter()
@@ -20,37 +21,47 @@ export default function AuthPage() {
     setErrorMsg(null)
     setSuccessMsg(null)
 
-    const authService = createAuthService()
-
     startTransition(async () => {
       if (authMode === 'register') {
-        const res = await authService.signUp({
+        const response = await registerAction({
           email: email.trim(),
           password,
           displayName: displayName.trim() || undefined,
         })
 
-        if (res.error) {
-          setErrorMsg(res.error)
+        if (!response.success) {
+          setErrorMsg(response.message)
+          toast.error('Error al registrar cuenta', {
+            description: response.message,
+          })
         } else {
-          setSuccessMsg('¡Cuenta registrada exitosamente! Redirigiendo...')
+          setSuccessMsg(response.message)
+          toast.success('¡Registro exitoso!', {
+            description: response.message,
+          })
           setTimeout(() => {
             router.push('/')
-          }, 1500)
+          }, 1200)
         }
       } else {
-        const res = await authService.signInWithPassword({
+        const response = await loginAction({
           email: email.trim(),
           password,
         })
 
-        if (res.error) {
-          setErrorMsg(res.error)
+        if (!response.success) {
+          setErrorMsg(response.message)
+          toast.error('Error al iniciar sesión', {
+            description: response.message,
+          })
         } else {
-          setSuccessMsg('¡Sesión iniciada correctamente! Redirigiendo...')
+          setSuccessMsg(response.message)
+          toast.success('¡Sesión iniciada!', {
+            description: response.message,
+          })
           setTimeout(() => {
             router.push('/')
-          }, 1500)
+          }, 1000)
         }
       }
     })

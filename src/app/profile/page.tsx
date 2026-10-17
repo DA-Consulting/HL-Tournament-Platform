@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import type { User } from '@supabase/supabase-js'
 import type { Profile, Player, Clan } from '@/types/models'
 import { createAuthService } from '@/services/auth.service'
@@ -105,28 +106,27 @@ export default function ProfilePage() {
    */
   async function handleSyncSteam() {
     if (!steamInput.trim()) {
+      const errorText = 'Por favor, ingresa tu SteamID64, enlace de perfil o vanity URL de Steam.'
       setSteamMessage({
         type: 'error',
-        text: 'Por favor, ingresa tu SteamID64, enlace de perfil o vanity URL de Steam.',
+        text: errorText,
       })
+      toast.error('Campo requerido', { description: errorText })
       return
     }
 
     setSteamLoading(true)
     setSteamMessage(null)
 
-    try {
+    const syncPromise = (async () => {
       const res = await fetch(`/api/steam/resolve?q=${encodeURIComponent(steamInput.trim())}`)
       const json = await res.json()
 
       if (!res.ok || !json.success || !json.data) {
-        setSteamMessage({
-          type: 'error',
-          text:
-            json.error ||
-            'No se pudo encontrar el perfil de Steam. Asegúrate de que el perfil sea público y que el ID o URL sea correcto.',
-        })
-        return
+        throw new Error(
+          json.error ||
+          'No se pudo encontrar el perfil de Steam. Asegúrate de que el perfil sea público y que el ID o URL sea correcto.'
+        )
       }
 
       const { steamId, personaName, avatarUrl: steamAvatar } = json.data
@@ -144,97 +144,82 @@ export default function ProfilePage() {
         type: 'success',
         text: `¡Cuenta de Steam vinculada exitosamente! Foto de perfil importada desde Steam CDN (${personaName || 'Jugador'}). Recuerda presionar "Guardar Cambios".`,
       })
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al conectar con Steam'
-      setSteamMessage({ type: 'error', text: msg })
-    } finally {
-      setSteamLoading(false)
-    }
+
+      return json.data
+    })()
+
+    toast.promise(syncPromise, {
+      loading: 'Consultando servidores de Steam...',
+      success: (data) =>
+        `¡Cuenta de Steam vinculada! Foto importada (${data.personaName || 'Jugador'}). Recuerda guardar los cambios.`,
+      error: (err) => {
+        const errorMsg = err instanceof Error ? err.message : 'Error al conectar con Steam'
+        setSteamMessage({ type: 'error', text: errorMsg })
+        return errorMsg
+      },
+      finally: () => {
+        setSteamLoading(false)
+      },
+    })
   }
 
   /**
-   * Guarda las modificaciones realizadas tanto en el perfil como en la información del jugador.
+   * Guarda las modificaciones realizadas tanto en el perfil como en la información del jugador
+   * utilizando la Server Action saveProfileAction con el contrato unificado ActionResponse.
    */
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    setSaveMessage(null)
 
     if (!playerName.trim()) {
-      setSaveMessage({
-        type: 'error',
-        text: 'El nombre del jugador en el juego no puede estar vacío.',
+      toast.error('Campo obligatorio', {
+        description: 'El nombre del jugador en el juego no puede estar vacío.',
       })
       return
     }
 
     startTransition(async () => {
-      try {
-        const authService = createAuthService()
-        const playersService = createPlayersService()
+      const { saveProfileAction } = await import('@/actions/players.actions')
+      const response = await saveProfileAction({
+        displayName: displayName.trim(),
+        playerName: playerName.trim(),
+        steamId: steamInput.trim() || null,
+        avatarUrl: avatarUrl || null,
+        clanId: selectedClanId || null,
+      })
 
-        // 1. Actualizar perfil de cuenta
-        const profileUpdateRes = await authService.updateProfile({
-          displayName: displayName.trim(),
-          avatarUrl: avatarUrl || undefined,
+      if (!response.success) {
+        toast.error('Error al guardar cambios', {
+          description: response.message,
         })
-
-        if (profileUpdateRes.error) {
-          setSaveMessage({
-            type: 'error',
-            text: `Error al actualizar perfil: ${profileUpdateRes.error}`,
-          })
-          return
-        }
-
-        // 2. Actualizar o crear registro de jugador
-        if (user) {
-          let targetPlayerId = player?.id
-
-          if (!targetPlayerId) {
-            const created = await playersService.ensurePlayerForUser(user.id, playerName.trim())
-            targetPlayerId = created.data?.id
-          }
-
-          if (targetPlayerId) {
-            const playerUpdateRes = await playersService.updatePlayer(targetPlayerId, {
-              name: playerName.trim(),
-              steam_id: steamInput.trim() || null,
-              avatar_url: avatarUrl || null,
-              clan_id: selectedClanId || null,
-            })
-
-            if (playerUpdateRes.error) {
-              setSaveMessage({
-                type: 'error',
-                text: `Error al actualizar información del jugador: ${playerUpdateRes.error}`,
-              })
-              return
-            }
-
-            if (playerUpdateRes.data) {
-              setPlayer(playerUpdateRes.data)
-            }
-          }
-        }
-
-        setSaveMessage({
-          type: 'success',
-          text: '✓ ¡Tus datos de cuenta e información del jugador fueron actualizados con éxito!',
+      } else {
+        toast.success('¡Éxito!', {
+          description: response.message,
         })
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Error inesperado al guardar los cambios'
-        setSaveMessage({ type: 'error', text: msg })
+        if (response.data) {
+          setProfile(response.data.profile)
+          setPlayer(response.data.player)
+        }
       }
     })
   }
 
   /**
-   * Cerrar sesión del usuario.
+   * Cerrar sesión del usuario utilizando logoutAction.
    */
   async function handleSignOut() {
-    const authService = createAuthService()
-    await authService.signOut()
-    router.push('/')
+    const { logoutAction } = await import('@/actions/auth.actions')
+    const response = await logoutAction()
+
+    if (!response.success) {
+      toast.error('Error al cerrar sesión', {
+        description: response.message,
+      })
+    } else {
+      toast.success('Sesión finalizada', {
+        description: response.message,
+      })
+      router.push('/')
+    }
   }
 
   if (loading) {
@@ -313,21 +298,6 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
-
-        {/* Mensaje global de guardado */}
-        {saveMessage && (
-          <div
-            className={
-              saveMessage.type === 'success'
-                ? 'auth-feedback-success'
-                : 'auth-feedback-error'
-            }
-            style={{ marginBottom: '1.5rem' }}
-          >
-            <span>{saveMessage.type === 'success' ? '✓' : '⚠'}</span>
-            <span>{saveMessage.text}</span>
-          </div>
-        )}
 
         <form onSubmit={handleSave}>
           {/* Barra de Acciones y Guardado */}

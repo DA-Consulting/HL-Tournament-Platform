@@ -6,7 +6,11 @@ import type { Clan, Player, Tournament, ClanWithMembers, PlayerWithClan } from '
 import { createClansService } from '@/services/clans.service'
 import { createPlayersService } from '@/services/players.service'
 import { createTournamentsService } from '@/services/tournaments.service'
+import { createTournamentAction } from '@/actions/tournaments.actions'
+import { createClanAction } from '@/actions/clans.actions'
+import { createPlayerAction } from '@/actions/players.actions'
 import { Navbar } from '@/components/Navbar'
+import { toast } from 'sonner'
 
 // Datos de demostración iniciales de torneos peruanos de Half-Life
 const MOCK_TOURNAMENTS: Tournament[] = [
@@ -293,13 +297,17 @@ export default function HomePage() {
   // Crear Torneo
   async function handleCreateTournament(e: React.FormEvent) {
     e.preventDefault()
-    if (!newTourTitle.trim() || !newTourStartDate) return
+    if (!newTourTitle.trim() || !newTourStartDate) {
+      toast.error('Datos incompletos', {
+        description: 'El título y la fecha de inicio del torneo son obligatorios.',
+      })
+      return
+    }
 
-    const tournamentsService = createTournamentsService()
     const defaultOrganizer = players[0]?.id || 'd3eeaa66-6a3c-4ef8-bb6d-6bb9bd380a44'
 
     startTransition(async () => {
-      const res = await tournamentsService.createTournament({
+      const response = await createTournamentAction({
         title: newTourTitle.trim(),
         description: newTourDesc.trim() || null,
         player_id: newTourOrganizerId || defaultOrganizer,
@@ -316,80 +324,72 @@ export default function HomePage() {
         max_participants: Number(newTourMaxParticipants) || 16,
       })
 
-      if (res.data) {
-        setTournaments((prev) => [res.data!, ...prev])
+      if (!response.success) {
+        toast.error('Error al registrar torneo', {
+          description: response.message,
+        })
       } else {
-        const mockNew: Tournament = {
-          id: `tour-${Date.now()}`,
-          title: newTourTitle.trim(),
-          description: newTourDesc.trim() || null,
-          player_id: newTourOrganizerId || defaultOrganizer,
-          status: newTourStatus,
-          start_date: new Date(newTourStartDate).toISOString(),
-          end_date: newTourEndDate ? new Date(newTourEndDate).toISOString() : null,
-          prize_pool_currency: newTourCurrency,
-          prize_pool_amount: Number(newTourAmount) || 0,
-          winner_player_id: null,
-          tournament_type: newTourType,
-          banner_url:
-            newTourBanner.trim() ||
-            'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1400',
-          game_mode: newTourGameMode,
-          max_participants: Number(newTourMaxParticipants) || 16,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+        if (response.data) {
+          setTournaments((prev) => [response.data!, ...prev])
         }
-        setTournaments((prev) => [mockNew, ...prev])
+        toast.success('¡Torneo publicado con éxito!', {
+          description: response.message,
+        })
+        setNewTourTitle('')
+        setNewTourDesc('')
+        setShowCreateTournamentModal(false)
       }
-
-      setNewTourTitle('')
-      setNewTourDesc('')
-      setShowCreateTournamentModal(false)
     })
   }
 
   // Crear Clan
   async function handleCreateClan(e: React.FormEvent) {
     e.preventDefault()
-    if (!newClanName.trim() || !newClanOwner.trim()) return
+    if (!newClanName.trim() || !newClanOwner.trim()) {
+      toast.error('Datos incompletos', {
+        description: 'El nombre del clan y el ID del líder son obligatorios.',
+      })
+      return
+    }
 
-    const clansService = createClansService()
     startTransition(async () => {
-      const res = await clansService.createClan({
+      const response = await createClanAction({
         name: newClanName.trim(),
         owner_id: newClanOwner.trim(),
         photo_url: newClanPhoto.trim() || null,
       })
 
-      if (res.data) {
-        setClans((prev) => [res.data!, ...prev])
+      if (!response.success) {
+        toast.error('Error al fundar clan', {
+          description: response.message,
+        })
       } else {
-        const mockNew: Clan = {
-          id: `clan-${Date.now()}`,
-          name: newClanName.trim(),
-          owner_id: newClanOwner.trim(),
-          photo_url: newClanPhoto.trim() || null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+        if (response.data) {
+          setClans((prev) => [response.data!, ...prev])
         }
-        setClans((prev) => [mockNew, ...prev])
+        toast.success('¡Clan fundado con éxito!', {
+          description: response.message,
+        })
+        setNewClanName('')
+        setNewClanOwner('')
+        setNewClanPhoto('')
+        setShowCreateClanModal(false)
       }
-
-      setNewClanName('')
-      setNewClanOwner('')
-      setNewClanPhoto('')
-      setShowCreateClanModal(false)
     })
   }
 
   // Crear Jugador
   async function handleCreatePlayer(e: React.FormEvent) {
     e.preventDefault()
-    if (!newPlayerName.trim() || !newPlayerSteamId.trim()) return
+    if (!newPlayerName.trim() || !newPlayerSteamId.trim()) {
+      toast.error('Datos incompletos', {
+        description: 'El nombre del combatiente y su Steam ID son obligatorios.',
+      })
+      return
+    }
 
-    const playersService = createPlayersService()
     startTransition(async () => {
-      const res = await playersService.createPlayer({
+      const response = await createPlayerAction({
         name: newPlayerName.trim(),
         steam_id: newPlayerSteamId.trim(),
         clan_id: newPlayerClanId || null,
@@ -397,27 +397,22 @@ export default function HomePage() {
 
       const assignedClan = clans.find((c) => c.id === newPlayerClanId) || null
 
-      if (res.data) {
-        setPlayers((prev) => [{ ...res.data!, clan: assignedClan }, ...prev])
+      if (!response.success) {
+        toast.error('Error al registrar combatiente', {
+          description: response.message,
+        })
       } else {
-        const mockPlayer: PlayerWithClan = {
-          id: `player-${Date.now()}`,
-          user_id: null,
-          name: newPlayerName.trim(),
-          steam_id: newPlayerSteamId.trim(),
-          avatar_url: null,
-          clan_id: newPlayerClanId || null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          clan: assignedClan,
+        if (response.data) {
+          setPlayers((prev) => [{ ...response.data!, clan: assignedClan }, ...prev])
         }
-        setPlayers((prev) => [mockPlayer, ...prev])
+        toast.success('¡Combatiente reclutado!', {
+          description: response.message,
+        })
+        setNewPlayerName('')
+        setNewPlayerSteamId('')
+        setNewPlayerClanId('')
+        setShowCreatePlayerModal(false)
       }
-
-      setNewPlayerName('')
-      setNewPlayerSteamId('')
-      setNewPlayerClanId('')
-      setShowCreatePlayerModal(false)
     })
   }
 
