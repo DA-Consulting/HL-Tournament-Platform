@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- Half-Life Tournament Platform: Schema DDL para Supabase
--- Tablas: clans, players
+-- Tablas: profiles (Auth), clans, players
 -- ==============================================================================
 
 -- Habilitar extensión pgcrypto o uuid-ossp para generación de UUIDs (habilitado por defecto en Supabase)
@@ -16,12 +16,56 @@ end;
 $$ language plpgsql;
 
 -- ------------------------------------------------------------------------------
--- 1. TABLA: clans
+-- 1. TABLA: profiles (Sincronizada con auth.users)
+-- Guarda la información pública del usuario registrado por correo/contraseña
+-- ------------------------------------------------------------------------------
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  display_name text,
+  avatar_url text,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now()
+);
+
+-- Índices para profiles
+create index if not exists idx_profiles_email on public.profiles(email);
+
+-- Trigger para updated_at en profiles
+drop trigger if exists set_profiles_updated_at on public.profiles;
+create trigger set_profiles_updated_at
+  before update on public.profiles
+  for each row
+  execute function public.handle_updated_at();
+
+-- Trigger que crea automáticamente el perfil público cuando un usuario se registra en auth.users
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, email, display_name, avatar_url)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data->>'display_name', new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
+    new.raw_user_meta_data->>'avatar_url'
+  );
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row
+  execute function public.handle_new_user();
+
+-- ------------------------------------------------------------------------------
+-- 2. TABLA: clans
 -- ------------------------------------------------------------------------------
 create table if not exists public.clans (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  owner_id text not null,
+  owner_id text not null, -- ID del usuario creador (coincide con auth.uid()::text)
   photo_url text,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now()
@@ -40,7 +84,7 @@ create trigger set_clans_updated_at
   execute function public.handle_updated_at();
 
 -- ------------------------------------------------------------------------------
--- 2. TABLA: players
+-- 3. TABLA: players
 -- ------------------------------------------------------------------------------
 create table if not exists public.players (
   id uuid primary key default gen_random_uuid(),
@@ -65,28 +109,36 @@ create trigger set_players_updated_at
   execute function public.handle_updated_at();
 
 -- ------------------------------------------------------------------------------
--- 3. POLÍTICAS DE ROW LEVEL SECURITY (RLS)
+-- 4. POLÍTICAS DE ROW LEVEL SECURITY (RLS)
 -- Siguiendo las directrices de seguridad de Supabase
 -- ------------------------------------------------------------------------------
 
--- Habilitar RLS en ambas tablas
+-- Habilitar RLS en todas las tablas
+alter table public.profiles enable row level security;
 alter table public.clans enable row level security;
 alter table public.players enable row level security;
 
--- Políticas de LECTURA (Pública para consultas de torneos)
+-- Políticas para profiles:
+create policy "Permitir lectura publica de perfiles"
+  on public.profiles
+  for select
+  to anon, authenticated
+  using (true);
+
+create policy "Permitir a cada usuario actualizar su propio perfil"
+  on public.profiles
+  for update
+  to authenticated
+  using ((select auth.uid()) = id)
+  with check ((select auth.uid()) = id);
+
+-- Políticas para clans:
 create policy "Permitir lectura publica de clanes"
   on public.clans
   for select
   to anon, authenticated
   using (true);
 
-create policy "Permitir lectura publica de jugadores"
-  on public.players
-  for select
-  to anon, authenticated
-  using (true);
-
--- Políticas de ESCRITURA para usuarios autenticados
 create policy "Permitir insercion de clanes a usuarios autenticados"
   on public.clans
   for insert
@@ -105,6 +157,13 @@ create policy "Permitir eliminacion de clanes por owner"
   for delete
   to authenticated
   using (owner_id = (select auth.uid())::text);
+
+-- Políticas para players:
+create policy "Permitir lectura publica de jugadores"
+  on public.players
+  for select
+  to anon, authenticated
+  using (true);
 
 create policy "Permitir insercion de jugadores a usuarios autenticados"
   on public.players
@@ -126,7 +185,7 @@ create policy "Permitir eliminacion de jugadores a usuarios autenticados"
   using (true);
 
 -- ------------------------------------------------------------------------------
--- 4. DATOS INICIALES DE PRUEBA (MOCK DATA)
+-- 5. DATOS INICIALES DE PRUEBA (MOCK DATA)
 -- ------------------------------------------------------------------------------
 insert into public.clans (id, name, owner_id, photo_url)
 values

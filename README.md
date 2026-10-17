@@ -76,6 +76,20 @@ Abre [http://localhost:3000](http://localhost:3000) en tu navegador para ver el 
 
 Los servicios están disponibles en `@/services` y aceptan cualquier cliente de Supabase (servidor o cliente).
 
+### Servicio de Autenticación (`AuthService`)
+Ubicación: [`src/services/auth.service.ts`](./src/services/auth.service.ts)
+
+- `signUp(credentials)`: Registra un usuario con correo, contraseña y display_name (activa trigger automático en `public.profiles`).
+- `signInWithPassword(credentials)`: Inicia sesión con correo y contraseña.
+- `signOut()`: Cierra la sesión activa y revoca cookies.
+- `getUser()`: Obtiene el usuario autenticado validado con el servidor de Supabase.
+- `getSession()`: Obtiene la sesión activa y tokens JWT.
+- `getProfile(userId?)`: Obtiene la fila pública del usuario desde `public.profiles`.
+- `updateProfile(params)`: Actualiza nombre y avatar en `public.profiles` y metadatos de auth.
+- `resetPasswordForEmail(params)`: Envía correo de recuperación de contraseña.
+- `updatePassword(params)`: Actualiza la contraseña del usuario conectado.
+- `onAuthStateChange(callback)`: Listener de eventos de autenticación en el cliente.
+
 ### Servicio de Clanes (`ClansService`)
 Ubicación: [`src/services/clans.service.ts`](./src/services/clans.service.ts)
 
@@ -166,6 +180,10 @@ export function PlayersSearch() {
 
 | Método | Endpoint | Descripción | Parámetros Query |
 |---|---|---|---|
+| `POST` | `/api/auth/register` | Registra usuario con email y contraseña | Body: `{ email, password, displayName? }` |
+| `POST` | `/api/auth/login` | Inicia sesión con email y contraseña | Body: `{ email, password }` |
+| `POST` | `/api/auth/logout` | Cierra sesión y revoca cookies | - |
+| `GET` | `/api/auth/me` | Retorna usuario y perfil autenticado | - |
 | `GET` | `/api/clans` | Lista clanes | `?search=...&ownerId=...&limit=10&offset=0` |
 | `POST` | `/api/clans` | Crea un clan | Body: `{ name, owner_id, photo_url? }` |
 | `GET` | `/api/clans/[id]` | Detalle de clan | `?withMembers=true` |

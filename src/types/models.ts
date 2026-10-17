@@ -1,6 +1,10 @@
 import type { Database } from './database.types'
 
 // Entidades base
+export type Profile = Database['public']['Tables']['profiles']['Row']
+export type ProfileInsert = Database['public']['Tables']['profiles']['Insert']
+export type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
+
 export type Clan = Database['public']['Tables']['clans']['Row']
 export type ClanInsert = Database['public']['Tables']['clans']['Insert']
 export type ClanUpdate = Database['public']['Tables']['clans']['Update']
