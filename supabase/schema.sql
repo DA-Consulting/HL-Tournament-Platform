@@ -22,6 +22,7 @@ create table if not exists public.profiles (
   email text not null,
   display_name text,
   avatar_url text,
+  role text not null default 'player', -- 'player', 'admin'
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now()
 );
@@ -33,17 +34,43 @@ create trigger set_profiles_updated_at
   before update on public.profiles
   for each row execute function public.handle_updated_at();
 
--- Trigger automático al registrar usuario en Supabase Auth
+-- Trigger automático al registrar usuario en Supabase Auth:
+-- Crea su fila en public.profiles y automáticamente su registro en public.players (a menos que sea admin)
 create or replace function public.handle_new_user()
 returns trigger as $$
+declare
+  user_role text;
+  user_name text;
 begin
-  insert into public.profiles (id, email, display_name, avatar_url)
+  user_role := coalesce(new.raw_user_meta_data->>'role', 'player');
+  user_name := coalesce(new.raw_user_meta_data->>'display_name', new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1));
+
+  -- 1. Crear perfil de usuario para autenticación
+  insert into public.profiles (id, email, display_name, avatar_url, role)
   values (
     new.id,
     new.email,
-    coalesce(new.raw_user_meta_data->>'display_name', new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
-    new.raw_user_meta_data->>'avatar_url'
-  );
+    user_name,
+    new.raw_user_meta_data->>'avatar_url',
+    user_role
+  )
+  on conflict (id) do update set
+    email = excluded.email,
+    display_name = coalesce(excluded.display_name, public.profiles.display_name),
+    avatar_url = coalesce(excluded.avatar_url, public.profiles.avatar_url);
+
+  -- 2. Si no es administrador, crear automáticamente su registro en public.players
+  if user_role <> 'admin' then
+    insert into public.players (user_id, name, steam_id, avatar_url)
+    values (
+      new.id,
+      user_name,
+      null, -- Se vinculará en su perfil con su cuenta de Steam
+      new.raw_user_meta_data->>'avatar_url'
+    )
+    on conflict (user_id) do nothing;
+  end if;
+
   return new;
 end;
 $$ language plpgsql security definer;
@@ -79,13 +106,16 @@ create trigger set_clans_updated_at
 -- ------------------------------------------------------------------------------
 create table if not exists public.players (
   id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade unique,
   name text not null,
-  steam_id text not null unique,
+  steam_id text unique, -- Nullable hasta que vincule su cuenta de Steam para torneos
+  avatar_url text, -- Foto traída directamente desde Steam CDN
   clan_id uuid references public.clans(id) on delete set null,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now()
 );
 
+create index if not exists idx_players_user_id on public.players(user_id);
 create index if not exists idx_players_name on public.players(name);
 create index if not exists idx_players_steam_id on public.players(steam_id);
 create index if not exists idx_players_clan_id on public.players(clan_id);
@@ -159,12 +189,16 @@ create policy "Permitir eliminacion de clanes por owner"
 -- Players:
 create policy "Permitir lectura publica de jugadores"
   on public.players for select to anon, authenticated using (true);
-create policy "Permitir insercion de jugadores a usuarios autenticados"
-  on public.players for insert to authenticated with check (true);
-create policy "Permitir actualizacion de jugadores a usuarios autenticados"
-  on public.players for update to authenticated using (true) with check (true);
-create policy "Permitir eliminacion de jugadores a usuarios autenticados"
-  on public.players for delete to authenticated using (true);
+create policy "Permitir a cada usuario insertar su propio registro de jugador"
+  on public.players for insert to authenticated
+  with check (user_id = (select auth.uid()));
+create policy "Permitir a cada usuario actualizar su propio registro de jugador"
+  on public.players for update to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
+create policy "Permitir eliminacion de jugador propio"
+  on public.players for delete to authenticated
+  using (user_id = (select auth.uid()));
 
 -- Tournaments:
 create policy "Permitir lectura publica de torneos"
@@ -175,7 +209,6 @@ create policy "Permitir actualizacion de torneos a usuarios autenticados"
   on public.tournaments for update to authenticated using (true) with check (true);
 create policy "Permitir eliminacion de torneos a usuarios autenticados"
   on public.tournaments for delete to authenticated using (true);
-
 -- ------------------------------------------------------------------------------
 -- 6. DATOS DE PRUEBA (MOCK DATA)
 -- ------------------------------------------------------------------------------

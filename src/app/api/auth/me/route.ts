@@ -14,6 +14,16 @@ export async function GET() {
     }
 
     const profileRes = await authService.getProfile(userRes.data.id)
+    const { createPlayersService } = await import('@/services/players.service')
+    const playersService = createPlayersService(supabase)
+    let playerData = (await playersService.getPlayerByUserId(userRes.data.id)).data
+
+    // Si el usuario no es admin y no tiene player, asegurarlo
+    if (!playerData && profileRes.data?.role !== 'admin') {
+      const defaultName = profileRes.data?.display_name || userRes.data.email?.split('@')[0] || 'Player'
+      const ensured = await playersService.ensurePlayerForUser(userRes.data.id, defaultName)
+      playerData = ensured.data
+    }
 
     return NextResponse.json(
       {
@@ -23,6 +33,7 @@ export async function GET() {
           createdAt: userRes.data.created_at,
         },
         profile: profileRes.data,
+        player: playerData,
       },
       { status: 200 }
     )

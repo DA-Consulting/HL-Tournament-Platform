@@ -15,6 +15,7 @@ export interface Database {
           email: string
           display_name: string | null
           avatar_url: string | null
+          role: string
           created_at: string
           updated_at: string
         }
@@ -23,6 +24,7 @@ export interface Database {
           email: string
           display_name?: string | null
           avatar_url?: string | null
+          role?: string
           created_at?: string
           updated_at?: string
         }
@@ -31,6 +33,7 @@ export interface Database {
           email?: string
           display_name?: string | null
           avatar_url?: string | null
+          role?: string
           created_at?: string
           updated_at?: string
         }
@@ -66,24 +69,30 @@ export interface Database {
       players: {
         Row: {
           id: string
+          user_id: string | null
           name: string
-          steam_id: string
+          steam_id: string | null
+          avatar_url: string | null
           clan_id: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
+          user_id?: string | null
           name: string
-          steam_id: string
+          steam_id?: string | null
+          avatar_url?: string | null
           clan_id?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
+          user_id?: string | null
           name?: string
-          steam_id?: string
+          steam_id?: string | null
+          avatar_url?: string | null
           clan_id?: string | null
           created_at?: string
           updated_at?: string

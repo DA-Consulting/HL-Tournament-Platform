@@ -6,6 +6,7 @@ import type { Clan, Player, Tournament, ClanWithMembers, PlayerWithClan } from '
 import { createClansService } from '@/services/clans.service'
 import { createPlayersService } from '@/services/players.service'
 import { createTournamentsService } from '@/services/tournaments.service'
+import { Navbar } from '@/components/Navbar'
 
 // Datos de demostración iniciales de torneos peruanos de Half-Life
 const MOCK_TOURNAMENTS: Tournament[] = [
@@ -98,8 +99,10 @@ const MOCK_CLANS: Clan[] = [
 const MOCK_PLAYERS: PlayerWithClan[] = [
   {
     id: 'd3eeaa66-6a3c-4ef8-bb6d-6bb9bd380a44',
+    user_id: null,
     name: 'Gordon Freeman [PE]',
     steam_id: 'STEAM_0:1:12345678',
+    avatar_url: 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg',
     clan_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     created_at: new Date(Date.now() - 86400000 * 4).toISOString(),
     updated_at: new Date().toISOString(),
@@ -107,8 +110,10 @@ const MOCK_PLAYERS: PlayerWithClan[] = [
   },
   {
     id: 'e4ddbb55-5b4d-4ef8-bb6d-6bb9bd380a55',
+    user_id: null,
     name: 'Barney Calhoun',
     steam_id: 'STEAM_0:0:87654321',
+    avatar_url: null,
     clan_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
     updated_at: new Date().toISOString(),
@@ -116,8 +121,10 @@ const MOCK_PLAYERS: PlayerWithClan[] = [
   },
   {
     id: 'f5ccaa44-4c5e-4ef8-bb6d-6bb9bd380a66',
+    user_id: null,
     name: 'Adrian Shephard',
     steam_id: 'STEAM_0:1:11223344',
+    avatar_url: null,
     clan_id: 'b1ffcd88-8b1a-4ef8-bb6d-6bb9bd380a22',
     created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
     updated_at: new Date().toISOString(),
@@ -275,7 +282,7 @@ export default function HomePage() {
   const filteredPlayers = players.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(playerSearch.toLowerCase()) ||
-      p.steam_id.toLowerCase().includes(playerSearch.toLowerCase())
+      (p.steam_id ? p.steam_id.toLowerCase().includes(playerSearch.toLowerCase()) : false)
 
     if (!matchesSearch) return false
     if (selectedClanFilter === 'all') return true
@@ -395,8 +402,10 @@ export default function HomePage() {
       } else {
         const mockPlayer: PlayerWithClan = {
           id: `player-${Date.now()}`,
+          user_id: null,
           name: newPlayerName.trim(),
           steam_id: newPlayerSteamId.trim(),
+          avatar_url: null,
           clan_id: newPlayerClanId || null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -433,101 +442,19 @@ export default function HomePage() {
     return `${cur} ${amount.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`
   }
 
-  const sqlSchemaCode = `-- ==============================================================================
--- Half-Life Peru Tournaments: Tablas profiles, clans, players, tournaments
--- ==============================================================================
-
-create table if not exists public.tournaments (
-  id uuid primary key default gen_random_uuid(),
-  title text not null,
-  description text,
-  player_id uuid not null references public.players(id),
-  status text not null default 'upcoming',
-  start_date timestamp with time zone not null,
-  end_date timestamp with time zone,
-  prize_pool_currency text default 'PEN',
-  prize_pool_amount numeric(12, 2) default 0,
-  winner_player_id uuid references public.players(id),
-  tournament_type text not null default 'individual',
-  banner_url text,
-  game_mode text default 'Half-Life: Deathmatch (Crossfire)',
-  max_participants integer default 16,
-  created_at timestamp with time zone not null default now(),
-  updated_at timestamp with time zone not null default now()
-);
-
-alter table public.tournaments enable row level security;
-create policy "Permitir lectura publica de torneos" on public.tournaments for select to anon, authenticated using (true);`
-
-  function copySqlToClipboard() {
-    navigator.clipboard.writeText(sqlSchemaCode)
-    setCopiedSql(true)
-    setTimeout(() => setCopiedSql(false), 2500)
-  }
-
   return (
     <>
       {/* =====================================================================
-          1. NAVBAR
+          1. NAVBAR (Con estado dinámico: Iniciar sesión / Ver Perfil)
           ===================================================================== */}
-      <header className="navbar">
-        <div className="navbar-inner">
-          {/* Lado Izquierdo: Nombre de la página con icono Lambda */}
-          <a
-            href="#"
-            className="brand-logo"
-            onClick={(e) => {
-              e.preventDefault()
-              setActiveTab('tournaments')
-              window.scrollTo({ top: 0, behavior: 'smooth' })
-            }}
-          >
-            <span>
-              Half Life / AG
-            </span>
-          </a>
-
-          {/* Lado Derecho: Sección 'Tournaments' a la izquierda del botón de Únete */}
-          <div className="navbar-right">
-            <button
-              className={`nav-link ${activeTab === 'tournaments' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('tournaments')
-                const el = document.getElementById('tournaments-section')
-                if (el) el.scrollIntoView({ behavior: 'smooth' })
-              }}
-            >
-              <span>Torneos</span>
-            </button>
-
-            <button
-              className={`nav-link ${activeTab === 'tournaments' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('tournaments')
-                const el = document.getElementById('tournaments-section')
-                if (el) el.scrollIntoView({ behavior: 'smooth' })
-              }}
-            >
-              <span>Comunidad</span>
-            </button>
-
-            <button
-              className={`nav-link ${activeTab === 'tournaments' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('tournaments')
-                const el = document.getElementById('tournaments-section')
-                if (el) el.scrollIntoView({ behavior: 'smooth' })
-              }}
-            >
-              <span>Top Jugadores</span>
-            </button>
-
-            <Link href="/auth" className="btn-join">
-              <span>Iniciar sesión</span>
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Navbar
+        activeSection={activeTab}
+        onSectionClick={(sec) => {
+          setActiveTab(sec as any)
+          const el = document.getElementById(`${sec}-section`)
+          if (el) el.scrollIntoView({ behavior: 'smooth' })
+        }}
+      />
 
       {/* =====================================================================
           2. HERO CAROUSEL (Debajo del Navbar)

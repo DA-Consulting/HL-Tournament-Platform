@@ -47,6 +47,7 @@ export interface ClanQueryParams extends PaginationOptions {
 export interface PlayerQueryParams extends PaginationOptions {
   search?: string
   steamId?: string
+  userId?: string
   clanId?: string | null
   unassignedOnly?: boolean
   orderBy?: 'name' | 'created_at' | 'updated_at'

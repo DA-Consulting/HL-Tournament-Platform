@@ -11,11 +11,20 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const search = searchParams.get('search') || undefined
     const steamId = searchParams.get('steamId') || undefined
+    const userId = searchParams.get('userId') || undefined
     const clanId = searchParams.get('clanId') || undefined
     const unassignedOnly = searchParams.get('unassignedOnly') === 'true'
     const withClan = searchParams.get('withClan') === 'true'
     const limit = searchParams.has('limit') ? Number(searchParams.get('limit')) : undefined
     const offset = searchParams.has('offset') ? Number(searchParams.get('offset')) : undefined
+
+    if (userId) {
+      const result = await playersService.getPlayerByUserId(userId)
+      if (result.error) {
+        return NextResponse.json({ error: result.error }, { status: 400 })
+      }
+      return NextResponse.json({ data: result.data })
+    }
 
     if (steamId) {
       const result = await playersService.getPlayerBySteamId(steamId)
@@ -29,6 +38,7 @@ export async function GET(request: NextRequest) {
       const result = await playersService.getPlayersWithClan({
         search,
         clanId,
+        userId,
         limit,
         offset,
       })
@@ -41,6 +51,7 @@ export async function GET(request: NextRequest) {
     const result = await playersService.getPlayers({
       search,
       clanId,
+      userId,
       unassignedOnly,
       limit,
       offset,
@@ -63,9 +74,9 @@ export async function POST(request: NextRequest) {
     const playersService = createPlayersService(supabase)
     const body = (await request.json()) as PlayerInsert
 
-    if (!body.name || !body.steam_id) {
+    if (!body.name) {
       return NextResponse.json(
-        { error: 'Campos requeridos: name y steam_id son obligatorios' },
+        { error: 'El campo name es obligatorio' },
         { status: 400 }
       )
     }

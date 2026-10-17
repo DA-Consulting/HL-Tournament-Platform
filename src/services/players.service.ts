@@ -28,6 +28,10 @@ export class PlayersService {
         query = query.eq('steam_id', params.steamId)
       }
 
+      if (params.userId) {
+        query = query.eq('user_id', params.userId)
+      }
+
       if (params.unassignedOnly) {
         query = query.is('clan_id', null)
       } else if (params.clanId !== undefined) {
@@ -171,6 +175,63 @@ export class PlayersService {
       return { data: data as Player | null, error: null }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Error al buscar jugador por Steam ID'
+      return { data: null, error: message }
+    }
+  }
+
+  /**
+   * Obtiene el jugador vinculado a una cuenta de usuario de Supabase Auth (user_id).
+   */
+  async getPlayerByUserId(userId: string): Promise<ServiceResponse<Player>> {
+    try {
+      const { data, error } = await this.supabase
+        .from('players')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      if (error) {
+        return { data: null, error: error.message }
+      }
+
+      return { data: data as Player | null, error: null }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al buscar jugador por User ID'
+      return { data: null, error: message }
+    }
+  }
+
+  /**
+   * Asegura que exista un registro de jugador para el usuario autenticado.
+   * Si no existe, lo crea automáticamente.
+   */
+  async ensurePlayerForUser(userId: string, defaultName: string): Promise<ServiceResponse<Player>> {
+    try {
+      // 1. Verificar si ya existe
+      const existing = await this.getPlayerByUserId(userId)
+      if (existing.data) {
+        return existing
+      }
+
+      // 2. Si no existe, crearlo
+      const { data, error } = await this.supabase
+        .from('players')
+        .insert({
+          user_id: userId,
+          name: defaultName,
+          steam_id: null,
+          avatar_url: null,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message }
+      }
+
+      return { data: data as Player, error: null }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al asegurar registro de jugador'
       return { data: null, error: message }
     }
   }
