@@ -21,8 +21,8 @@ const MOCK_TOURNAMENTS: Tournament[] = [
       'El torneo insignia de Half-Life en Perú. 16 clanes compiten en el búnker de Crossfire y Stalkyard por la gloria nacional y el pozo acumulado.',
     player_id: 'd3eeaa66-6a3c-4ef8-bb6d-6bb9bd380a44',
     status: 'ongoing',
-    start_date: new Date(Date.now() - 86400000 * 2).toISOString(),
-    end_date: new Date(Date.now() + 86400000 * 5).toISOString(),
+    start_date: '2026-10-15T10:00:00.000Z',
+    end_date: '2026-10-22T22:00:00.000Z',
     prize_pool_currency: 'PEN',
     prize_pool_amount: 3500.0,
     winner_player_id: null,
@@ -30,8 +30,8 @@ const MOCK_TOURNAMENTS: Tournament[] = [
     banner_url: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1400',
     game_mode: 'HL Deathmatch 5v5 (Crossfire & Stalkyard)',
     max_participants: 16,
-    created_at: new Date(Date.now() - 86400000 * 10).toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-10-07T08:00:00.000Z',
+    updated_at: '2026-10-17T12:00:00.000Z',
   },
   {
     id: '77aa1122-2222-4444-bbbb-000000000002',
@@ -40,8 +40,8 @@ const MOCK_TOURNAMENTS: Tournament[] = [
       'Duelos hardcore 1v1 con Tau Cannon (Gauss), escopeta y revólver 357. Domina el tau jump y demuestra tus reflejos en arenas cerradas.',
     player_id: 'e4ddbb55-5b4d-4ef8-bb6d-6bb9bd380a55',
     status: 'registration_open',
-    start_date: new Date(Date.now() + 86400000 * 3).toISOString(),
-    end_date: new Date(Date.now() + 86400000 * 4).toISOString(),
+    start_date: '2026-10-20T18:00:00.000Z',
+    end_date: '2026-10-21T21:00:00.000Z',
     prize_pool_currency: 'USD',
     prize_pool_amount: 500.0,
     winner_player_id: null,
@@ -49,8 +49,8 @@ const MOCK_TOURNAMENTS: Tournament[] = [
     banner_url: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1400',
     game_mode: 'Half-Life 1v1 Arena',
     max_participants: 32,
-    created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-10-12T10:00:00.000Z',
+    updated_at: '2026-10-17T12:00:00.000Z',
   },
   {
     id: '77aa1122-3333-4444-bbbb-000000000003',
@@ -59,8 +59,8 @@ const MOCK_TOURNAMENTS: Tournament[] = [
       'Competición de ritmo ultra rápido con bunnyhop avanzado y física competitiva AG. Diseñado para los jugadores más rápidos del país.',
     player_id: 'f5ccaa44-4c5e-4ef8-bb6d-6bb9bd380a66',
     status: 'upcoming',
-    start_date: new Date(Date.now() + 86400000 * 12).toISOString(),
-    end_date: new Date(Date.now() + 86400000 * 14).toISOString(),
+    start_date: '2026-10-29T16:00:00.000Z',
+    end_date: '2026-10-31T23:00:00.000Z',
     prize_pool_currency: 'PEN',
     prize_pool_amount: 2000.0,
     winner_player_id: null,
@@ -68,8 +68,8 @@ const MOCK_TOURNAMENTS: Tournament[] = [
     banner_url: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=1400',
     game_mode: 'Adrenaline Gamer 2v2',
     max_participants: 24,
-    created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-10-14T14:00:00.000Z',
+    updated_at: '2026-10-17T12:00:00.000Z',
   },
 ]
 
@@ -79,24 +79,24 @@ const MOCK_CLANS: Clan[] = [
     name: 'Black Mesa Squad Perú',
     owner_id: 'usr_freeman_001',
     photo_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200',
-    created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-10-12T10:00:00.000Z',
+    updated_at: '2026-10-17T12:00:00.000Z',
   },
   {
     id: 'b1ffcd88-8b1a-4ef8-bb6d-6bb9bd380a22',
     name: 'Lambda Core Rebels Lima',
     owner_id: 'usr_calhoun_002',
     photo_url: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=200',
-    created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-10-14T11:00:00.000Z',
+    updated_at: '2026-10-17T12:00:00.000Z',
   },
   {
     id: 'c2eedd77-7a2b-4ef8-bb6d-6bb9bd380a33',
     name: 'HEV Elite Division',
     owner_id: 'usr_shephard_003',
     photo_url: null,
-    created_at: new Date(Date.now() - 86400000 * 1).toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-10-16T09:00:00.000Z',
+    updated_at: '2026-10-17T12:00:00.000Z',
   },
 ]
 
@@ -108,8 +108,8 @@ const MOCK_PLAYERS: PlayerWithClan[] = [
     steam_id: 'STEAM_0:1:12345678',
     avatar_url: 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg',
     clan_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    created_at: new Date(Date.now() - 86400000 * 4).toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-10-13T10:00:00.000Z',
+    updated_at: '2026-10-17T12:00:00.000Z',
     clan: MOCK_CLANS[0],
   },
   {
@@ -119,8 +119,8 @@ const MOCK_PLAYERS: PlayerWithClan[] = [
     steam_id: 'STEAM_0:0:87654321',
     avatar_url: null,
     clan_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-10-14T10:00:00.000Z',
+    updated_at: '2026-10-17T12:00:00.000Z',
     clan: MOCK_CLANS[0],
   },
   {
@@ -130,8 +130,8 @@ const MOCK_PLAYERS: PlayerWithClan[] = [
     steam_id: 'STEAM_0:1:11223344',
     avatar_url: null,
     clan_id: 'b1ffcd88-8b1a-4ef8-bb6d-6bb9bd380a22',
-    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: '2026-10-15T10:00:00.000Z',
+    updated_at: '2026-10-17T12:00:00.000Z',
     clan: MOCK_CLANS[1],
   },
 ]
@@ -193,53 +193,61 @@ export default function HomePage() {
 
   // Carga inicial
   useEffect(() => {
-    fetchData()
-  }, [])
+    let isCancelled = false
 
-  async function fetchData() {
-    setLoading(true)
-    setApiErrorMessage(null)
+    async function loadData() {
+      const tournamentsService = createTournamentsService()
+      const clansService = createClansService()
+      const playersService = createPlayersService()
 
-    const tournamentsService = createTournamentsService()
-    const clansService = createClansService()
-    const playersService = createPlayersService()
+      try {
+        const [tourRes, clansRes, playersRes] = await Promise.all([
+          tournamentsService.getTournaments(),
+          clansService.getClans(),
+          playersService.getPlayersWithClan(),
+        ])
 
-    try {
-      const [tourRes, clansRes, playersRes] = await Promise.all([
-        tournamentsService.getTournaments(),
-        clansService.getClans(),
-        playersService.getPlayersWithClan(),
-      ])
+        if (isCancelled) return
 
-      if (tourRes.data && !tourRes.error) {
-        setTournaments(tourRes.data.length > 0 ? tourRes.data : MOCK_TOURNAMENTS)
-        setIsLiveSupabase(true)
-      } else {
+        if (tourRes.data && !tourRes.error) {
+          setTournaments(tourRes.data.length > 0 ? tourRes.data : MOCK_TOURNAMENTS)
+          setIsLiveSupabase(true)
+        } else {
+          setTournaments(MOCK_TOURNAMENTS)
+          setIsLiveSupabase(false)
+          if (tourRes.error) setApiErrorMessage(tourRes.error)
+        }
+
+        if (clansRes.data && !clansRes.error) {
+          setClans(clansRes.data.length > 0 ? clansRes.data : MOCK_CLANS)
+        } else {
+          setClans(MOCK_CLANS)
+        }
+
+        if (playersRes.data && !playersRes.error) {
+          setPlayers(playersRes.data.length > 0 ? playersRes.data : MOCK_PLAYERS)
+        } else {
+          setPlayers(MOCK_PLAYERS)
+        }
+      } catch {
+        if (isCancelled) return
         setTournaments(MOCK_TOURNAMENTS)
-        setIsLiveSupabase(false)
-        if (tourRes.error) setApiErrorMessage(tourRes.error)
-      }
-
-      if (clansRes.data && !clansRes.error) {
-        setClans(clansRes.data.length > 0 ? clansRes.data : MOCK_CLANS)
-      } else {
         setClans(MOCK_CLANS)
-      }
-
-      if (playersRes.data && !playersRes.error) {
-        setPlayers(playersRes.data.length > 0 ? playersRes.data : MOCK_PLAYERS)
-      } else {
         setPlayers(MOCK_PLAYERS)
+        setIsLiveSupabase(false)
+      } finally {
+        if (!isCancelled) {
+          setLoading(false)
+        }
       }
-    } catch {
-      setTournaments(MOCK_TOURNAMENTS)
-      setClans(MOCK_CLANS)
-      setPlayers(MOCK_PLAYERS)
-      setIsLiveSupabase(false)
-    } finally {
-      setLoading(false)
     }
-  }
+
+    loadData()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [])
 
   // Torneos para el carrusel
   const carouselTournaments = tournaments.slice(0, 4)
@@ -445,7 +453,7 @@ export default function HomePage() {
       <Navbar
         activeSection={activeTab}
         onSectionClick={(sec) => {
-          setActiveTab(sec as any)
+          setActiveTab(sec as 'tournaments' | 'clans' | 'players')
           const el = document.getElementById(`${sec}-section`)
           if (el) el.scrollIntoView({ behavior: 'smooth' })
         }}
@@ -487,11 +495,6 @@ export default function HomePage() {
                   <span className="badge badge-type">
                     {tour.tournament_type === 'team' ? '👥 En Equipos' : '👤 Solo'}
                   </span>
-                  {tour.game_mode && (
-                    <span className="badge badge-type" style={{ borderColor: 'var(--border-accent)' }}>
-                      🎮 {tour.game_mode}
-                    </span>
-                  )}
                 </div>
 
                 <h1 className="carousel-title">{tour.title}</h1>
@@ -521,22 +524,18 @@ export default function HomePage() {
                 </div>
 
                 <div className="carousel-actions">
-                  <button
+                  <Link
+                    href={`/tournament/${tour.id}`}
                     className="btn-join"
-                    onClick={() => setSelectedTournamentDetails(tour)}
                   >
-                    <span>🎯</span> Inscribirse / Ver Torneo
-                  </button>
-                  <button
+                    <span>🎯</span> Ver Torneo / Inscripción
+                  </Link>
+                  <Link
+                    href="/tournaments"
                     className="btn-secondary-action"
-                    onClick={() => {
-                      setActiveTab('tournaments')
-                      const el = document.getElementById('tournaments-section')
-                      if (el) el.scrollIntoView({ behavior: 'smooth' })
-                    }}
                   >
                     Explorar Torneos
-                  </button>
+                  </Link>
                 </div>
               </div>
             </div>
@@ -637,15 +636,13 @@ export default function HomePage() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-              <button
+              <Link
+                href={`/tournament/${selectedTournamentDetails.id}`}
                 className="btn-join"
-                onClick={() => {
-                  alert(`¡Solicitud de inscripción enviada para: ${selectedTournamentDetails.title}!`)
-                  setSelectedTournamentDetails(null)
-                }}
+                onClick={() => setSelectedTournamentDetails(null)}
               >
-                🎮 Inscribir mi Clan / Jugador
-              </button>
+                <span>🎮</span> Ver Detalles e Inscribirme
+              </Link>
             </div>
           </div>
         </div>

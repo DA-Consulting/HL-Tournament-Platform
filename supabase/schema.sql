@@ -140,7 +140,7 @@ create table if not exists public.tournaments (
   prize_pool_currency text default 'PEN', -- 'PEN', 'USD'
   prize_pool_amount numeric(12, 2) default 0,
   winner_player_id uuid references public.players(id) on delete set null,
-  tournament_type text not null default 'individual', -- 'individual' (1v1), 'team' (2v2, 5v5)
+  tournament_type text not null default 'individual', -- 'individual' (1v1), 'team' (2v2, 5v5), 'league' (Liga / Round Robin)
   -- Campos extendidos recomendados para visualización y gestión completa:
   banner_url text, -- Imagen de portada para el carrusel hero
   game_mode text default 'Half-Life: Deathmatch (Crossfire)',
@@ -160,12 +160,61 @@ create trigger set_tournaments_updated_at
   for each row execute function public.handle_updated_at();
 
 -- ------------------------------------------------------------------------------
--- 5. POLÍTICAS ROW LEVEL SECURITY (RLS)
+-- 5. TABLA: tournament_players (Inscripciones de jugadores y estadísticas)
+-- ------------------------------------------------------------------------------
+create table if not exists public.tournament_players (
+  id uuid primary key default gen_random_uuid(),
+  tournament_id uuid not null references public.tournaments(id) on delete cascade,
+  player_id uuid not null references public.players(id) on delete cascade,
+  score integer not null default 0,
+  matches_played integer not null default 0,
+  matches_won integer not null default 0,
+  matches_lost integer not null default 0,
+  status text not null default 'registered', -- 'registered', 'confirmed', 'active', 'eliminated'
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  unique (tournament_id, player_id)
+);
+
+create index if not exists idx_tournament_players_tournament_id on public.tournament_players(tournament_id);
+create index if not exists idx_tournament_players_player_id on public.tournament_players(player_id);
+create index if not exists idx_tournament_players_score on public.tournament_players(tournament_id, score desc);
+
+drop trigger if exists set_tournament_players_updated_at on public.tournament_players;
+create trigger set_tournament_players_updated_at
+  before update on public.tournament_players
+  for each row execute function public.handle_updated_at();
+
+-- ------------------------------------------------------------------------------
+-- 6. TABLA: tournament_matches (Partidas y resultados de torneos)
+-- ------------------------------------------------------------------------------
+create table if not exists public.tournament_matches (
+  id uuid primary key default gen_random_uuid(),
+  tournament_id uuid not null references public.tournaments(id) on delete cascade,
+  player1_id uuid not null references public.players(id) on delete cascade,
+  player2_id uuid not null references public.players(id) on delete cascade,
+  player1_score integer not null default 0,
+  player2_score integer not null default 0,
+  winner_player_id uuid references public.players(id) on delete set null,
+  status text not null default 'completed', -- 'scheduled', 'ongoing', 'completed'
+  map_name text not null default 'crossfire',
+  round_name text default 'Fase Clasificatoria',
+  played_at timestamp with time zone default now(),
+  created_at timestamp with time zone not null default now()
+);
+
+create index if not exists idx_tournament_matches_tournament_id on public.tournament_matches(tournament_id);
+create index if not exists idx_tournament_matches_played_at on public.tournament_matches(tournament_id, played_at desc);
+
+-- ------------------------------------------------------------------------------
+-- 7. POLÍTICAS ROW LEVEL SECURITY (RLS)
 -- ------------------------------------------------------------------------------
 alter table public.profiles enable row level security;
 alter table public.clans enable row level security;
 alter table public.players enable row level security;
 alter table public.tournaments enable row level security;
+alter table public.tournament_players enable row level security;
+alter table public.tournament_matches enable row level security;
 
 -- Profiles:
 create policy "Permitir lectura publica de perfiles"
@@ -209,8 +258,25 @@ create policy "Permitir actualizacion de torneos a usuarios autenticados"
   on public.tournaments for update to authenticated using (true) with check (true);
 create policy "Permitir eliminacion de torneos a usuarios autenticados"
   on public.tournaments for delete to authenticated using (true);
+
+-- Tournament Players:
+create policy "Permitir lectura publica de tournament_players"
+  on public.tournament_players for select to anon, authenticated using (true);
+create policy "Permitir inscripcion de jugadores a usuarios autenticados"
+  on public.tournament_players for insert to authenticated with check (true);
+create policy "Permitir actualizacion de inscripciones a autenticados"
+  on public.tournament_players for update to authenticated using (true) with check (true);
+create policy "Permitir cancelacion de inscripcion"
+  on public.tournament_players for delete to authenticated using (true);
+
+-- Tournament Matches:
+create policy "Permitir lectura publica de partidas de torneos"
+  on public.tournament_matches for select to anon, authenticated using (true);
+create policy "Permitir a autenticados gestionar partidas de torneos"
+  on public.tournament_matches for all to authenticated using (true) with check (true);
+
 -- ------------------------------------------------------------------------------
--- 6. DATOS DE PRUEBA (MOCK DATA)
+-- 8. DATOS DE PRUEBA (MOCK DATA)
 -- ------------------------------------------------------------------------------
 insert into public.clans (id, name, owner_id, photo_url)
 values
@@ -299,3 +365,75 @@ values
     16
   )
 on conflict (id) do nothing;
+
+-- Inscritos en Torneo: Copa Nacional Crossfire Perú 2026
+insert into public.tournament_players (
+  id, tournament_id, player_id, score, matches_played, matches_won, matches_lost, status
+)
+values
+  ('88aa1111-0001-4444-bbbb-000000000001', '77aa1122-1111-4444-bbbb-000000000001', 'd3eeaa66-6a3c-4ef8-bb6d-6bb9bd380a44', 18, 6, 6, 0, 'confirmed'),
+  ('88aa1111-0002-4444-bbbb-000000000002', '77aa1122-1111-4444-bbbb-000000000001', 'f5ccaa44-4c5e-4ef8-bb6d-6bb9bd380a66', 12, 6, 4, 2, 'confirmed'),
+  ('88aa1111-0003-4444-bbbb-000000000003', '77aa1122-1111-4444-bbbb-000000000001', 'e4ddbb55-5b4d-4ef8-bb6d-6bb9bd380a55', 9, 5, 3, 2, 'confirmed'),
+  ('88aa1111-0004-4444-bbbb-000000000004', '77aa1122-1111-4444-bbbb-000000000001', '06bba933-3d6f-4ef8-bb6d-6bb9bd380a77', 6, 5, 2, 3, 'confirmed'),
+  ('88aa1111-0005-4444-bbbb-000000000005', '77aa1122-1111-4444-bbbb-000000000001', '17aa9822-2e7a-4ef8-bb6d-6bb9bd380a88', 3, 4, 1, 3, 'confirmed')
+on conflict (tournament_id, player_id) do nothing;
+
+-- Partidas jugadas en Torneo: Copa Nacional Crossfire Perú 2026
+insert into public.tournament_matches (
+  id, tournament_id, player1_id, player2_id, player1_score, player2_score, winner_player_id, status, map_name, round_name, played_at
+)
+values
+  (
+    '99aa1111-0001-4444-bbbb-000000000001',
+    '77aa1122-1111-4444-bbbb-000000000001',
+    'd3eeaa66-6a3c-4ef8-bb6d-6bb9bd380a44',
+    'f5ccaa44-4c5e-4ef8-bb6d-6bb9bd380a66',
+    50,
+    38,
+    'd3eeaa66-6a3c-4ef8-bb6d-6bb9bd380a44',
+    'completed',
+    'crossfire',
+    'Fase de Grupos - Fecha 3',
+    now() - interval '3 hours'
+  ),
+  (
+    '99aa1111-0002-4444-bbbb-000000000002',
+    '77aa1122-1111-4444-bbbb-000000000001',
+    'e4ddbb55-5b4d-4ef8-bb6d-6bb9bd380a55',
+    '06bba933-3d6f-4ef8-bb6d-6bb9bd380a77',
+    45,
+    42,
+    'e4ddbb55-5b4d-4ef8-bb6d-6bb9bd380a55',
+    'completed',
+    'stalkyard',
+    'Fase de Grupos - Fecha 2',
+    now() - interval '18 hours'
+  ),
+  (
+    '99aa1111-0003-4444-bbbb-000000000003',
+    '77aa1122-1111-4444-bbbb-000000000001',
+    'd3eeaa66-6a3c-4ef8-bb6d-6bb9bd380a44',
+    'e4ddbb55-5b4d-4ef8-bb6d-6bb9bd380a55',
+    50,
+    29,
+    'd3eeaa66-6a3c-4ef8-bb6d-6bb9bd380a44',
+    'completed',
+    'crossfire',
+    'Fase de Grupos - Fecha 1',
+    now() - interval '1 day'
+  ),
+  (
+    '99aa1111-0004-4444-bbbb-000000000004',
+    '77aa1122-1111-4444-bbbb-000000000001',
+    'f5ccaa44-4c5e-4ef8-bb6d-6bb9bd380a66',
+    '17aa9822-2e7a-4ef8-bb6d-6bb9bd380a88',
+    50,
+    31,
+    'f5ccaa44-4c5e-4ef8-bb6d-6bb9bd380a66',
+    'completed',
+    'boot_camp',
+    'Fase de Grupos - Fecha 1',
+    now() - interval '1 day'
+  )
+on conflict (id) do nothing;
+

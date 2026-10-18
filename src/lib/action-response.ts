@@ -1,7 +1,7 @@
 /**
  * Contrato tipado unificado para respuestas de Server Actions en la aplicación.
  */
-export type ActionResponse<T = any> =
+export type ActionResponse<T = unknown> =
   | { success: true; message: string; data?: T }
   | { success: false; message: string; code?: string }
 

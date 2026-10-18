@@ -116,19 +116,6 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {/* Mensajes de retroalimentación */}
-          {successMsg && (
-            <div className="auth-feedback-success">
-              <span>✓</span> {successMsg}
-            </div>
-          )}
-
-          {errorMsg && (
-            <div className="auth-feedback-error">
-              <span>⚠</span> {errorMsg}
-            </div>
-          )}
-
           {/* Formulario */}
           <form onSubmit={handleSubmit} className="auth-form">
             {authMode === 'register' && (

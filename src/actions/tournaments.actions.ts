@@ -146,3 +146,149 @@ export async function deleteTournamentAction(
     }
   }
 }
+
+/**
+ * Server Action para inscribir al jugador autenticado en un torneo.
+ */
+export async function registerToTournamentAction(
+  tournamentId: string
+): Promise<ActionResponse<{ id: string; tournament_id: string; player_id: string }>> {
+  try {
+    if (!tournamentId) {
+      return {
+        success: false,
+        message: 'Identificador del torneo no proporcionado.',
+        code: 'VALIDATION_ERROR',
+      }
+    }
+
+    const supabase = await createClient()
+
+    // 1. Verificar usuario autenticado
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabase.auth.getUser()
+
+    if (authErr || !user) {
+      return {
+        success: false,
+        message: 'Debes iniciar sesión para inscribirte en este torneo.',
+        code: 'UNAUTHORIZED',
+      }
+    }
+
+    // 2. Obtener el registro de Player del usuario
+    const { data: player, error: playerErr } = await supabase
+      .from('players')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (playerErr || !player) {
+      return {
+        success: false,
+        message: 'No se encontró tu ficha de jugador. Por favor completa tu perfil.',
+        code: 'PLAYER_NOT_FOUND',
+      }
+    }
+
+    // 3. Validar vinculación obligatoria de Steam
+    if (!player.steam_id) {
+      return {
+        success: false,
+        message: 'Para participar en torneos debes vincular tu Steam ID en tu Perfil.',
+        code: 'STEAM_REQUIRED',
+      }
+    }
+
+    // 4. Verificar estado del torneo y cupos
+    const { data: tournament, error: tourErr } = await supabase
+      .from('tournaments')
+      .select('id, status, max_participants')
+      .eq('id', tournamentId)
+      .single()
+
+    if (tourErr || !tournament) {
+      return {
+        success: false,
+        message: 'El torneo solicitado no existe.',
+        code: 'TOURNAMENT_NOT_FOUND',
+      }
+    }
+
+    if (tournament.status === 'completed' || tournament.status === 'cancelled') {
+      return {
+        success: false,
+        message: 'Este torneo ya ha finalizado o ha sido cancelado.',
+        code: 'TOURNAMENT_CLOSED',
+      }
+    }
+
+    // 5. Verificar si ya está inscrito
+    const { data: alreadyEnrolled } = await supabase
+      .from('tournament_players')
+      .select('id')
+      .eq('tournament_id', tournamentId)
+      .eq('player_id', player.id)
+      .maybeSingle()
+
+    if (alreadyEnrolled) {
+      return {
+        success: false,
+        message: 'Ya te encuentras registrado en este torneo.',
+        code: 'ALREADY_REGISTERED',
+      }
+    }
+
+    // 6. Verificar límite de participantes
+    const { count } = await supabase
+      .from('tournament_players')
+      .select('*', { count: 'exact', head: true })
+      .eq('tournament_id', tournamentId)
+
+    if (tournament.max_participants && (count ?? 0) >= tournament.max_participants) {
+      return {
+        success: false,
+        message: 'El torneo ha alcanzado el límite máximo de participantes.',
+        code: 'TOURNAMENT_FULL',
+      }
+    }
+
+    // 7. Insertar inscripción
+    const { data: newEntry, error: insertErr } = await supabase
+      .from('tournament_players')
+      .insert({
+        tournament_id: tournamentId,
+        player_id: player.id,
+        score: 0,
+        matches_played: 0,
+        matches_won: 0,
+        matches_lost: 0,
+        status: 'confirmed',
+      })
+      .select()
+      .single()
+
+    if (insertErr) {
+      return handleActionError(insertErr, 'No se pudo completar la inscripción.')
+    }
+
+    revalidatePath(`/tournament/${tournamentId}`)
+    revalidatePath('/')
+
+    return handleActionSuccess('¡Inscripción exitosa! Has sido registrado en el torneo.', {
+      id: newEntry.id,
+      tournament_id: newEntry.tournament_id,
+      player_id: newEntry.player_id,
+    })
+  } catch (criticalError: unknown) {
+    console.error('[CRITICAL registerToTournamentAction error]:', criticalError)
+    return {
+      success: false,
+      message: 'Ocurrió un error inesperado al procesar tu inscripción en el servidor.',
+      code: 'SERVER_EXCEPTION',
+    }
+  }
+}
+

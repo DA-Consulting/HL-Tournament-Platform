@@ -17,6 +17,14 @@ export type Tournament = Database['public']['Tables']['tournaments']['Row']
 export type TournamentInsert = Database['public']['Tables']['tournaments']['Insert']
 export type TournamentUpdate = Database['public']['Tables']['tournaments']['Update']
 
+export type TournamentPlayer = Database['public']['Tables']['tournament_players']['Row']
+export type TournamentPlayerInsert = Database['public']['Tables']['tournament_players']['Insert']
+export type TournamentPlayerUpdate = Database['public']['Tables']['tournament_players']['Update']
+
+export type TournamentMatch = Database['public']['Tables']['tournament_matches']['Row']
+export type TournamentMatchInsert = Database['public']['Tables']['tournament_matches']['Insert']
+export type TournamentMatchUpdate = Database['public']['Tables']['tournament_matches']['Update']
+
 // Relaciones extendidas
 export interface ClanWithMembers extends Clan {
   players: Player[]
@@ -29,6 +37,17 @@ export interface PlayerWithClan extends Player {
 export interface TournamentWithDetails extends Tournament {
   organizer?: Player | null
   winner?: Player | null
+  participants_count?: number
+}
+
+export interface TournamentPlayerWithPlayer extends TournamentPlayer {
+  player: PlayerWithClan
+}
+
+export interface TournamentMatchWithPlayers extends TournamentMatch {
+  player1: PlayerWithClan
+  player2: PlayerWithClan
+  winner?: PlayerWithClan | null
 }
 
 // Parámetros de consulta para filtrado y paginación
@@ -59,6 +78,7 @@ export interface TournamentQueryParams extends PaginationOptions {
   status?: string
   tournamentType?: string
   playerId?: string
+  enrolledPlayerId?: string
   featuredOnly?: boolean
   orderBy?: 'start_date' | 'prize_pool_amount' | 'created_at' | 'title'
   orderAscending?: boolean

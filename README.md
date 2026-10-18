@@ -1,196 +1,195 @@
 # 🎮 Half-Life Tournament Platform
 
-Plataforma de torneos construida en **Next.js 16 (App Router)** con conexión directa a **Supabase**, tipos TypeScript estrictos y capa de servicios desacoplada para gestión de **Clanes (Clans)** y **Jugadores (Players)**.
+Plataforma integral para gestión de torneos competitivos de Half-Life (1v1, 2v2/5v5 por equipos y ligas Round-Robin), construida con **Next.js 16 (App Router)** y **Supabase** (PostgreSQL, Auth, RLS).
+
+---
+
+## 🏗️ Arquitectura y Tecnologías
+
+- **Framework Web:** [Next.js 16 (App Router)](https://nextjs.org/) con React 19, Server Components y Server Actions.
+- **Base de Datos & Auth:** [Supabase](https://supabase.com/) con PostgreSQL, Row Level Security (RLS) y triggers automáticos.
+- **Diseño & Estilos:** Vanilla CSS modular con paleta Half-Life (`#fb7e14`, `#000000`, `#151515`, `#292929`), microanimaciones y diseño responsivo adaptativo.
+- **Notificaciones:** Sonner toast notifications.
+- **Integraciones:** Steam Web API para resolución de perfiles y Steam IDs.
 
 ---
 
 ## 📋 Modelo de Datos
 
-### 1. Tabla: `clans`
-| Campo | Tipo | Requerido | Descripción |
-|---|---|---|---|
-| `id` | `uuid` | Sí | Identificador único del clan (PK, `gen_random_uuid()`) |
-| `name` | `text` | Sí | Nombre del clan |
-| `owner_id` | `text` | Sí | ID del creador / propietario |
-| `photo_url` | `text` | No (Opcional) | Identificador o URL de la imagen a mostrar en el perfil |
-| `created_at` | `timestamptz` | Sí | Auditoría de creación del registro (`now()`) |
-| `updated_at` | `timestamptz` | Sí | Auditoría de actualización (actualizado por trigger) |
+El esquema DDL completo y optimizado se encuentra en [`supabase/schema.sql`](./supabase/schema.sql).
 
-### 2. Tabla: `players`
-| Campo | Tipo | Requerido | Descripción |
-|---|---|---|---|
-| `id` | `uuid` | Sí | Identificador único del jugador (PK, `gen_random_uuid()`) |
-| `name` | `text` | Sí | Nombre del jugador |
-| `steam_id` | `text` | Sí | Identificador único de Steam (`unique`) |
-| `clan_id` | `uuid` | No (Opcional) | Identificador del clan asociado (`FK -> clans.id`) |
-| `created_at` | `timestamptz` | Sí | Auditoría de creación del registro (`now()`) |
-| `updated_at` | `timestamptz` | Sí | Auditoría de actualización (actualizado por trigger) |
+### 1. `profiles`
+Sincronizada automáticamente con `auth.users` mediante triggers de Supabase.
+- `id` (uuid, PK, ref `auth.users`)
+- `email` (text)
+- `display_name` (text)
+- `avatar_url` (text)
+- `role` (text: `'player' | 'admin'`)
+- `created_at`, `updated_at` (timestamptz)
+
+### 2. `clans`
+Gestión de clanes y equipos competitivos.
+- `id` (uuid, PK, `gen_random_uuid()`)
+- `name` (text, único)
+- `owner_id` (text, ID del creador)
+- `photo_url` (text, logo del clan)
+- `created_at`, `updated_at` (timestamptz)
+
+### 3. `players`
+Perfil competitivo de jugadores en la plataforma.
+- `id` (uuid, PK)
+- `name` (text)
+- `steam_id` (text, único)
+- `clan_id` (uuid, FK `clans.id`, nullable para agentes libres)
+- `created_at`, `updated_at` (timestamptz)
+
+### 4. `tournaments`
+Torneos activos, programados o finalizados.
+- `id` (uuid, PK)
+- `title` (text)
+- `description` (text)
+- `player_id` (uuid, FK `players.id`, Organizador)
+- `status` (`'registration_open' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled'`)
+- `tournament_type` (`'individual' | 'team' | 'league'`)
+- `start_date`, `end_date` (timestamptz)
+- `prize_pool_amount` (numeric), `prize_pool_currency` (text: PEN, USD)
+- `winner_player_id` (uuid, FK `players.id`, nullable)
+- `banner_url`, `game_mode`, `max_participants`
+- `created_at`, `updated_at` (timestamptz)
+
+### 5. `tournament_players`
+Inscripciones y rendimiento en cada torneo.
+- `id` (uuid, PK)
+- `tournament_id` (uuid, FK `tournaments.id` on delete cascade)
+- `player_id` (uuid, FK `players.id` on delete cascade)
+- `status` (`'registered' | 'confirmed' | 'active' | 'eliminated'`)
+- `score`, `matches_played`, `matches_won`, `matches_lost`
+- Restricción única: `(tournament_id, player_id)`
 
 ---
 
-## 🚀 Puesta en Marcha Rápida
+## 🚀 Puesta en Marcha
 
-### 1. Configurar Base de Datos en Supabase
-1. Abre tu panel de [Supabase Dashboard](https://supabase.com/dashboard).
-2. Entra a tu proyecto y navega a **SQL Editor**.
-3. Copia y ejecuta el contenido del archivo [`supabase/schema.sql`](./supabase/schema.sql).
-   - Crea las tablas `clans` y `players`.
-   - Crea índices optimizados (`idx_clans_owner_id`, `idx_players_steam_id`, `idx_players_clan_id`).
-   - Activa triggers automáticos para `updated_at`.
-   - Configura las políticas de seguridad **Row Level Security (RLS)**.
-   - Inserta datos iniciales de prueba.
+### 1. Prerrequisitos
+- [Node.js](https://nodejs.org/) v20 o superior.
+- Cuenta o proyecto activo en [Supabase](https://supabase.com).
 
-### 2. Configurar Variables de Entorno
-Copia el archivo de ejemplo o edita `.env.local`:
+### 2. Configurar Base de Datos en Supabase
+1. Ingresa a tu panel en [Supabase Dashboard](https://supabase.com/dashboard).
+2. Ve a **SQL Editor**.
+3. Pega y ejecuta el contenido de [`supabase/schema.sql`](./supabase/schema.sql).
+   - Genera tablas, índices compuestos y triggers de auditoría.
+   - Aplica políticas de seguridad **Row Level Security (RLS)**.
+   - Siembra datos semilla para pruebas locales.
+
+### 3. Configurar Variables de Entorno
+Copia el archivo base `.env.example`:
 
 ```bash
 cp .env.example .env.local
 ```
 
-Configura tus credenciales (disponibles en *Project Settings -> API* o panel *Connect*):
+Configura tus claves obtenidas en *Project Settings -> API*:
+
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_tu-clave-publica
-SUPABASE_SECRET_KEY=sb_secret_tu-clave-secreta # Opcional, solo backend
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_tu-clave
+SUPABASE_SECRET_KEY=sb_secret_tu-clave-secreta # Solo backend
+
+# Opcional (Steam Vanity URL resolver)
+STEAM_API_KEY=tu-steam-web-api-key
 ```
 
-### 3. Iniciar el Servidor de Desarrollo
+### 4. Instalar Dependencias y Ejecutar
 ```bash
+# Instalar paquetes
+npm install
+
+# Iniciar servidor de desarrollo
 npm run dev
+
+# Validar linting
+npm run lint
+
+# Construir para producción
+npm run build
 ```
 
-Abre [http://localhost:3000](http://localhost:3000) en tu navegador para ver el dashboard interactivo de torneos.
+El servidor iniciará en [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## 🛠️ Arquitectura de Clientes Supabase
+## 📂 Estructura del Proyecto
 
-- **Browser Client (`src/lib/supabase/client.ts`)**: Para componentes del cliente (`'use client'`).
-- **Server Client (`src/lib/supabase/server.ts`)**: Para Server Components, Server Actions y Route Handlers (`cookies()` seguras).
-- **Admin Client (`src/lib/supabase/admin.ts`)**: Para operaciones elevadas de servidor usando `SUPABASE_SECRET_KEY`.
-- **Proxy / Session (`src/proxy.ts` / `src/lib/supabase/middleware.ts`)**: Refresco automático de tokens de sesión.
-
----
-
-## 📦 Capa de Servicios
-
-Los servicios están disponibles en `@/services` y aceptan cualquier cliente de Supabase (servidor o cliente).
-
-### Servicio de Autenticación (`AuthService`)
-Ubicación: [`src/services/auth.service.ts`](./src/services/auth.service.ts)
-
-- `signUp(credentials)`: Registra un usuario con correo, contraseña y display_name (activa trigger automático en `public.profiles`).
-- `signInWithPassword(credentials)`: Inicia sesión con correo y contraseña.
-- `signOut()`: Cierra la sesión activa y revoca cookies.
-- `getUser()`: Obtiene el usuario autenticado validado con el servidor de Supabase.
-- `getSession()`: Obtiene la sesión activa y tokens JWT.
-- `getProfile(userId?)`: Obtiene la fila pública del usuario desde `public.profiles`.
-- `updateProfile(params)`: Actualiza nombre y avatar en `public.profiles` y metadatos de auth.
-- `resetPasswordForEmail(params)`: Envía correo de recuperación de contraseña.
-- `updatePassword(params)`: Actualiza la contraseña del usuario conectado.
-- `onAuthStateChange(callback)`: Listener de eventos de autenticación en el cliente.
-
-### Servicio de Clanes (`ClansService`)
-Ubicación: [`src/services/clans.service.ts`](./src/services/clans.service.ts)
-
-- `getClans(params?: ClanQueryParams)`: Listado con búsqueda por nombre, filtro por propietario y paginación.
-- `getClanById(id: string)`: Obtiene un clan por su UUID.
-- `getClanWithMembers(id: string)`: Obtiene el clan con todos sus jugadores asociados (`JOIN`).
-- `getClansByOwner(ownerId: string)`: Clanes creados por un propietario.
-- `createClan(data: ClanInsert)`: Registra un nuevo clan.
-- `updateClan(id: string, updates: ClanUpdate)`: Actualiza campos de un clan.
-- `deleteClan(id: string)`: Elimina un clan.
-- `countClans()`: Conteo total.
-
-### Servicio de Jugadores (`PlayersService`)
-Ubicación: [`src/services/players.service.ts`](./src/services/players.service.ts)
-
-- `getPlayers(params?: PlayerQueryParams)`: Listado con búsqueda, filtro por clan o sin clan, y paginación.
-- `getPlayersWithClan(params?: PlayerQueryParams)`: Lista jugadores con la información completa de su clan.
-- `getPlayerById(id: string)`: Jugador individual por ID.
-- `getPlayerWithClanById(id: string)`: Jugador individual con datos de su clan.
-- `getPlayerBySteamId(steamId: string)`: Búsqueda exacta por Steam ID.
-- `getPlayersByClanId(clanId: string)`: Miembros de un clan.
-- `getUnassignedPlayers()`: Jugadores libres sin clan (`clan_id is null`).
-- `createPlayer(data: PlayerInsert)`: Registro de nuevo jugador.
-- `updatePlayer(id: string, updates: PlayerUpdate)`: Actualización de datos.
-- `assignToClan(playerId: string, clanId: string | null)`: Asignación o desvinculación de clan.
-- `deletePlayer(id: string)`: Eliminación de jugador.
-
----
-
-## 💻 Ejemplos de Uso
-
-### En un Server Component (App Router)
-```tsx
-import { createClient } from '@/lib/supabase/server'
-import { createClansService, createPlayersService } from '@/services'
-
-export default async function TournamentRosterPage() {
-  const supabase = await createClient()
-  const clansService = createClansService(supabase)
-  const playersService = createPlayersService(supabase)
-
-  const { data: clans } = await clansService.getClans({ limit: 10 })
-  const { data: players } = await playersService.getPlayersWithClan()
-
-  return (
-    <div>
-      <h1>Clanes Registrados: {clans?.length}</h1>
-      <ul>
-        {players?.map((p) => (
-          <li key={p.id}>
-            {p.name} ({p.steam_id}) - Clan: {p.clan?.name ?? 'Libre'}
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-```
-
-### En un Client Component (`'use client'`)
-```tsx
-'use client'
-
-import { useEffect, useState } from 'react'
-import { createPlayersService, type Player } from '@/services'
-
-export function PlayersSearch() {
-  const [players, setPlayers] = useState<Player[]>([])
-
-  async function handleSearch(term: string) {
-    const service = createPlayersService()
-    const { data } = await service.getPlayers({ search: term })
-    if (data) setPlayers(data)
-  }
-
-  return (
-    <div>
-      <input onChange={(e) => handleSearch(e.target.value)} placeholder="Buscar jugador..." />
-      {players.map((p) => <div key={p.id}>{p.name}</div>)}
-    </div>
-  )
-}
+```text
+├── src/
+│   ├── actions/          # Next.js Server Actions (auth, clans, players, tournaments)
+│   ├── app/              # App Router (páginas, layouts, rutas dinámicas y Route Handlers)
+│   │   ├── api/          # Endpoints REST (/auth, /clans, /players, /tournaments, /steam)
+│   │   ├── auth/         # Página de login y registro
+│   │   ├── profile/      # Perfil de usuario y sincronización de Steam
+│   │   ├── tournaments/  # Listado, filtros y creación de torneos
+│   │   ├── tournament/   # Vista de detalle de torneo e inscripciones
+│   │   └── page.tsx      # Dashboard principal con carrusel y estadísticas
+│   ├── components/       # Componentes reutilizables (Navbar, modales, etc.)
+│   ├── lib/
+│   │   ├── supabase/     # Clientes browser, server, admin y middleware
+│   │   └── action-response.ts # Normalización tipada de respuestas de Server Actions
+│   ├── services/         # Capa de lógica desacoplada (Auth, Clans, Players, Tournaments)
+│   └── types/            # Tipos de base de datos y modelos TypeScript
+├── supabase/
+│   └── schema.sql        # Esquema DDL de PostgreSQL con RLS y datos de prueba
+├── .env.example          # Plantilla de variables de entorno
+└── .gitignore            # Reglas de exclusión para Git y entornos de despliegue
 ```
 
 ---
 
-## 🌐 Endpoints REST Disponibles
+## 🌐 Endpoints REST Principales
 
-| Método | Endpoint | Descripción | Parámetros Query |
-|---|---|---|---|
-| `POST` | `/api/auth/register` | Registra usuario con email y contraseña | Body: `{ email, password, displayName? }` |
-| `POST` | `/api/auth/login` | Inicia sesión con email y contraseña | Body: `{ email, password }` |
-| `POST` | `/api/auth/logout` | Cierra sesión y revoca cookies | - |
-| `GET` | `/api/auth/me` | Retorna usuario y perfil autenticado | - |
-| `GET` | `/api/clans` | Lista clanes | `?search=...&ownerId=...&limit=10&offset=0` |
-| `POST` | `/api/clans` | Crea un clan | Body: `{ name, owner_id, photo_url? }` |
-| `GET` | `/api/clans/[id]` | Detalle de clan | `?withMembers=true` |
-| `PATCH` | `/api/clans/[id]` | Actualiza clan | Body: `{ name?, photo_url? }` |
-| `DELETE` | `/api/clans/[id]` | Elimina clan | - |
-| `GET` | `/api/players` | Lista jugadores | `?search=...&steamId=...&clanId=...&withClan=true` |
-| `POST` | `/api/players` | Registra jugador | Body: `{ name, steam_id, clan_id? }` |
-| `GET` | `/api/players/[id]` | Detalle de jugador | `?withClan=true` |
-| `PATCH` | `/api/players/[id]` | Actualiza jugador | Body: `{ name?, clan_id? }` |
-| `DELETE` | `/api/players/[id]` | Elimina jugador | - |
+| Método | Endpoint | Descripción |
+|---|---|---|
+| `POST` | `/api/auth/register` | Registro de usuario con email, contraseña y nombre |
+| `POST` | `/api/auth/login` | Inicio de sesión seguro con cookies HTTP-only |
+| `POST` | `/api/auth/logout` | Cierre de sesión y revocación de sesión |
+| `GET` | `/api/auth/me` | Consulta del perfil de la sesión actual |
+| `GET`, `POST` | `/api/tournaments` | Listado con filtros y creación de torneos |
+| `GET`, `PATCH`, `DELETE` | `/api/tournaments/[id]` | Consulta, actualización y cancelación de torneo |
+| `GET`, `POST` | `/api/clans` | Listado paginado y creación de clanes |
+| `GET`, `PATCH`, `DELETE` | `/api/clans/[id]` | Detalle con miembros, edición y baja de clan |
+| `GET`, `POST` | `/api/players` | Directorio de jugadores y vinculación |
+| `GET`, `PATCH`, `DELETE` | `/api/players/[id]` | Detalle con clan, actualización y desvinculación |
+| `GET` | `/api/steam/resolve` | Resolución de vanity URLs / Steam ID 64 |
+
+---
+
+## 🔐 Preparación para Repositorio Privado de Organización en GitHub
+
+Para subir este proyecto a un repositorio privado en la organización de GitHub:
+
+1. **Crear el repositorio en la Organización:**
+   - Crear un repositorio vacío (sin README ni .gitignore iniciales para evitar conflictos) en GitHub bajo la organización deseada, marcado como **Private**.
+
+2. **Verificar que no existan credenciales:**
+   - Confirmar que `.env.local` esté ignorado (comprobado en `.gitignore`).
+   - Los archivos `.env*` sensibles nunca deben ser añadidos al historial de git.
+
+3. **Vincular el origen remoto y subir:**
+
+```bash
+# Cambiar el nombre de rama principal a 'main' si tu org lo requiere:
+git branch -M main
+
+# Agregar el control remoto de tu organización:
+# Vía HTTPS:
+git remote add origin https://github.com/TU-ORGANIZACION/HLTournamentPlatform.git
+
+# O vía SSH:
+# git remote add origin git@github.com:TU-ORGANIZACION/HLTournamentPlatform.git
+
+# Subir la rama principal con upstream:
+git push -u origin main
+```
+
+> [!NOTE]
+> Si la organización requiere autenticación por token en HTTPS, utiliza un **Personal Access Token (classic o fine-grained)** con permisos `repo` o una clave SSH configurada en tu cuenta de GitHub.

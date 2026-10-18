@@ -176,6 +176,128 @@ export interface Database {
           }
         ]
       }
+      tournament_players: {
+        Row: {
+          id: string
+          tournament_id: string
+          player_id: string
+          score: number
+          matches_played: number
+          matches_won: number
+          matches_lost: number
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          tournament_id: string
+          player_id: string
+          score?: number
+          matches_played?: number
+          matches_won?: number
+          matches_lost?: number
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          tournament_id?: string
+          player_id?: string
+          score?: number
+          matches_played?: number
+          matches_won?: number
+          matches_lost?: number
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_players_tournament_id_fkey"
+            columns: ["tournament_id"]
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_players_player_id_fkey"
+            columns: ["player_id"]
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      tournament_matches: {
+        Row: {
+          id: string
+          tournament_id: string
+          player1_id: string
+          player2_id: string
+          player1_score: number
+          player2_score: number
+          winner_player_id: string | null
+          status: string
+          map_name: string
+          round_name: string | null
+          played_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tournament_id: string
+          player1_id: string
+          player2_id: string
+          player1_score?: number
+          player2_score?: number
+          winner_player_id?: string | null
+          status?: string
+          map_name?: string
+          round_name?: string | null
+          played_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          tournament_id?: string
+          player1_id?: string
+          player2_id?: string
+          player1_score?: number
+          player2_score?: number
+          winner_player_id?: string | null
+          status?: string
+          map_name?: string
+          round_name?: string | null
+          played_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_matches_tournament_id_fkey"
+            columns: ["tournament_id"]
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_matches_player1_id_fkey"
+            columns: ["player1_id"]
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_matches_player2_id_fkey"
+            columns: ["player2_id"]
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_matches_winner_player_id_fkey"
+            columns: ["winner_player_id"]
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
